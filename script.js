@@ -19,10 +19,34 @@ function initAuth() {
         document.getElementById('auth-overlay').classList.add('hidden');
         document.getElementById('app-container').classList.remove('hidden');
         
-        if (currentUser === 'Prashanth.C@brillio.com') {
-            document.getElementById('manage-reasons-btn').classList.remove('hidden');
-            const adminActions = document.getElementById('admin-actions');
-            if (adminActions) adminActions.classList.remove('hidden');
+        const manageBtn = document.getElementById('manage-reasons-btn');
+        const adminActions = document.getElementById('admin-actions');
+        const adminButtons = adminActions ? adminActions.querySelectorAll('button') : [];
+
+        if (currentUser.toLowerCase() === 'prashanth.c@brillio.com') {
+            if (manageBtn) {
+                manageBtn.disabled = false;
+                manageBtn.title = "Manage Reasons";
+                manageBtn.classList.remove('hidden'); 
+            }
+            // Enable Admin Actions
+            adminButtons.forEach(btn => {
+                btn.disabled = false;
+                // Restore original title if stored (optional, but good for UX)
+                if (btn.dataset.originalTitle) btn.title = btn.dataset.originalTitle;
+            });
+        } else {
+            if (manageBtn) {
+                manageBtn.disabled = true;
+                manageBtn.title = "Admin Access Only";
+                manageBtn.classList.remove('hidden');
+            }
+            // Disable Admin Actions
+            adminButtons.forEach(btn => {
+                btn.disabled = true;
+                if (!btn.dataset.originalTitle) btn.dataset.originalTitle = btn.title;
+                btn.title = "Admin Access Only";
+            });
         }
     } else {
         document.getElementById('auth-overlay').classList.remove('hidden');

@@ -1,6 +1,6 @@
 {
-  "name": "ai-adoption-leaderboard",
-  "version": "1.3.0",
+  "name": "captivate3",
+  "version": "1.4.0",
   "main": "script.js",
   "scripts": {
     "start": "node server.js",
@@ -8,15 +8,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Prashanth-C-M/ai-adoption-leaderboard.git"
+    "url": "git+https://github.com/Prashanth-C-M/Captivate3.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Prashanth-C-M/ai-adoption-leaderboard/issues"
+    "url": "https://github.com/Prashanth-C-M/Captivate3/issues"
   },
-  "homepage": "https://github.com/Prashanth-C-M/ai-adoption-leaderboard#readme",
+  "homepage": "https://github.com/Prashanth-C-M/Captivate3#readme",
   "description": "",
   "dependencies": {
     "cors": "^2.8.5",
