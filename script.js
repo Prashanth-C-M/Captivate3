@@ -1,5 +1,9 @@
 // --- Auth System (SQLite Backend) ---
-const API_BASE_URL = 'http://localhost:3000';
+// Leave empty string for production to use relative paths (same domain)
+// For local development with separate frontend/backend, set to 'http://localhost:3000'
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'http://localhost:3000' 
+    : ''; 
 let currentUser = sessionStorage.getItem('currentUser');
 
 window.showAuth = function(viewId) {
