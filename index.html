@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cap-tivate Leaderboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Auth Overlay -->
+    <div id="auth-overlay" class="auth-overlay">
+        <div class="auth-container">
+            <div class="auth-box" id="auth-login">
+                <h2>Login to <span class="brand-title">Cap-tivate</span></h2>
+                <form id="form-login">
+                    <div class="form-group">
+                        <label>Email ID</label>
+                        <input type="text" id="login-email" placeholder="name@brillio.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button type="submit" class="btn primary full-width">Login</button>
+                    <div class="auth-links">
+                        <a href="#" onclick="showAuth('register')">Register</a> | 
+                        <a href="#" onclick="showAuth('forgot')">Forgot Password?</a>
+                    </div>
+                </form>
+            </div>
+
+            <div class="auth-box hidden" id="auth-register">
+                <h2>Register</h2>
+                <form id="form-register">
+                    <div class="form-group">
+                        <label>Email ID (Brillio Only)</label>
+                        <input type="text" id="reg-email" placeholder="name@brillio.com" required>
+                        <div id="reg-email-error" class="error-msg hidden"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="reg-password" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <input type="password" id="reg-confirm" required>
+                    </div>
+                    <button type="submit" class="btn primary full-width">Sign Up</button>
+                    <div class="auth-links">
+                        <a href="#" onclick="showAuth('login')">Back to Login</a>
+                    </div>
+                </form>
+            </div>
+
+            <div class="auth-box hidden" id="auth-forgot">
+                <h2>Reset Password</h2>
+                <form id="form-forgot">
+                    <div class="form-group">
+                        <label>Email ID</label>
+                        <input type="text" id="forgot-email" required>
+                    </div>
+                    <button type="submit" class="btn primary full-width">Send Reset Link</button>
+                    <div class="auth-links">
+                        <a href="#" onclick="showAuth('login')">Back to Login</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="background-effects">
+        <div class="grid-overlay"></div>
+        <div class="glow-orb glow-1"></div>
+        <div class="glow-orb glow-2"></div>
+        <div class="glow-orb glow-3"></div>
+    </div>
+    <div id="app-container" class="container hidden">
+        <header>
+            <div class="logo-area">
+                <div class="captivate-logo">
+                    <svg class="cap-icon cap-orange" viewBox="0 0 120 80">
+                        <path fill="currentColor" d="M20,50 A30,30 0 0,1 80,50 L110,50 L100,60 L20,60 Z M50,20 A10,10 0 0,1 50,20 Z" />
+                    </svg>
+                    <svg class="cap-icon cap-green" viewBox="0 0 120 80">
+                        <path fill="currentColor" d="M20,50 A30,30 0 0,1 80,50 L110,50 L100,60 L20,60 Z" />
+                    </svg>
+                    <svg class="cap-icon cap-purple" viewBox="0 0 120 80">
+                        <path fill="currentColor" d="M20,50 A30,30 0 0,1 80,50 L110,50 L100,60 L20,60 Z" />
+                    </svg>
+                    <svg class="cap-icon cap-black" viewBox="0 0 120 80">
+                        <path fill="currentColor" d="M20,50 A30,30 0 0,1 80,50 L110,50 L100,60 L20,60 Z" />
+                    </svg>
+                </div>
+                <div class="title-wrapper">
+                    <h1>Cap-tivate</h1>
+                    <p class="subtitle">Master the Core. Maximize your More</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="add-team-btn" class="btn primary"><i class="fa-solid fa-plus"></i> Add Team</button>
+                <button id="view-report-btn" class="btn secondary"><i class="fa-solid fa-chart-line"></i> Insights Report</button>
+                <button id="view-rules-btn" class="btn secondary"><i class="fa-solid fa-info-circle"></i> Pointing System</button>
+                <button id="manage-reasons-btn" class="btn secondary hidden"><i class="fa-solid fa-list-check"></i> Manage Reasons</button>
+                
+                <button id="logout-btn" class="btn danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+            </div>
+        </header>
+
+        <div id="podium-display" class="podium-display">
+            <!-- Podium will be injected here -->
+        </div>
+
+        <div id="admin-actions" class="hidden" style="display: flex; justify-content: center; gap: 1rem; margin: 1.5rem auto;">
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">Teams:</span>
+                <button id="export-teams-btn" class="btn secondary" title="Export Teams"><i class="fa-solid fa-download"></i> Export</button>
+                <input type="file" id="import-teams-file" hidden accept=".xlsx, .xls">
+                <button id="import-teams-btn" class="btn secondary" title="Import Teams"><i class="fa-solid fa-upload"></i> Import</button>
+            </div>
+            
+            <div style="display: flex; gap: 0.5rem; align-items: center; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 1rem;">
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">Reasons:</span>
+                <button id="export-reasons-btn" class="btn secondary" title="Export Reasons"><i class="fa-solid fa-download"></i> Export</button>
+                <input type="file" id="import-reasons-file" hidden accept=".xlsx, .xls">
+                <button id="import-reasons-btn" class="btn secondary" title="Import Reasons"><i class="fa-solid fa-upload"></i> Import</button>
+            </div>
+            
+            <div style="display: flex; gap: 0.5rem; align-items: center; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 1rem;">
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">Users:</span>
+                <button id="view-users-btn" class="btn secondary" title="View Users"><i class="fa-solid fa-users"></i> View</button>
+            </div>
+        </div>
+
+        <div class="leaderboard-container">
+            <div class="leaderboard-header">
+                <div class="col rank">Rank</div>
+                <div class="col team">Team</div>
+                <div class="col score">Score</div>
+                <div class="col cap-level">Level Cap</div>
+                <div class="col actions">Actions</div>
+            </div>
+            <div id="leaderboard-list">
+                <!-- List items will be injected here by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Details Modal (Dashboard) -->
+    <div id="view-modal" class="modal">
+        <div class="modal-content dashboard-modal">
+            <span class="close-view">&times;</span>
+            
+            <div class="dashboard-header">
+                <div class="dashboard-icon" id="view-icon">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div class="dashboard-info">
+                    <h2 id="view-name">Team Name</h2>
+                    <div class="dashboard-rank">Rank #<span id="view-rank">1</span></div>
+                </div>
+            </div>
+
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <div class="stat-label">Total Score</div>
+                    <div class="stat-value" id="view-score">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Current Level</div>
+                    <div class="stat-value level-text" id="view-level">Novice</div>
+                </div>
+            </div>
+
+            <div class="progress-section">
+                <div class="progress-info">
+                    <span>Progress to Next Level</span>
+                    <span id="view-progress-text">0 / 1000</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" id="view-progress-bar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Badges section removed -->
+
+            <div class="dashboard-history">
+                <h3>History</h3>
+                <div class="history-list" id="view-history">
+                    <!-- History injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Team Modal -->
+    <div id="team-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="modal-title">Add New Team</h2>
+            <form id="team-form">
+                <input type="hidden" id="edit-index" value="-1">
+                
+                <div class="form-group">
+                    <label for="team-name">Team Name</label>
+                    <input type="text" id="team-name" required placeholder="e.g. Neural Nexus">
+                </div>
+                
+                <div class="form-group">
+                    <label>Current Score</label>
+                    <div id="current-score-display" style="padding: 0.8rem; background: rgba(255,255,255,0.1); border-radius: 8px; color: var(--accent); font-weight: bold;">0</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="points-reason">Reason</label>
+                    <select id="points-reason" required>
+                        <option value="" disabled selected>Select a reason...</option>
+                        <!-- Options populated via JS -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="points-add">Add Points</label>
+                    <input type="number" id="points-add" readonly placeholder="Points will auto-populate">
+                </div>
+
+                <div class="form-group">
+                    <label>Select Icon</label>
+                    <div class="icon-selection">
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-brain" checked><i class="fa-solid fa-brain"></i></label>
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-database"><i class="fa-solid fa-database"></i></label>
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-robot"><i class="fa-solid fa-robot"></i></label>
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-code-branch"><i class="fa-solid fa-code-branch"></i></label>
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-microchip"><i class="fa-solid fa-microchip"></i></label>
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-graduation-cap"><i class="fa-solid fa-graduation-cap"></i></label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn primary full-width">Save Team</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Analytics Report Modal -->
+    <div id="report-modal" class="modal">
+        <div class="modal-content report-modal-content">
+            <span class="close-report">&times;</span>
+            <h2>📊 Insights Dashboard</h2>
+            
+            <div class="simple-stats-grid">
+                <div class="stat-box">
+                    <h3>Total Points Awarded</h3>
+                    <div id="total-points-display" class="big-number">0</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Top Performing Team</h3>
+                    <div id="top-team-display" class="highlight-text">-</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Most Active Day</h3>
+                    <div id="active-day-display" class="highlight-text">-</div>
+                </div>
+            </div>
+
+            <div class="charts-grid" style="margin-bottom: 2.5rem;">
+                <div class="chart-card">
+                    <h3>🏆 Top Squads</h3>
+                    <canvas id="topSquadsChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>🚀 Activity Momentum</h3>
+                        <div class="chart-controls">
+                            <button class="chart-btn active" onclick="updateMomentum('weekly')">1W</button>
+                            <button class="chart-btn" onclick="updateMomentum('monthly')">1M</button>
+                            <button class="chart-btn" onclick="updateMomentum('yearly')">1Y</button>
+                        </div>
+                    </div>
+                    <canvas id="momentumChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>🎯 Impact Breakdown</h3>
+                    <canvas id="breakdownChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>🎓 Mastery Levels</h3>
+                    <canvas id="levelsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="recent-activity-section">
+                <h3>Recent Activities</h3>
+                <div id="recent-activities-list" class="activity-list">
+                    <!-- List injected via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pointing System Modal -->
+    <div id="rules-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-rules">&times;</span>
+            <h2>🏆 Pointing System</h2>
+            <div class="rules-list">
+                <div class="rule-item">
+                    <div class="rule-points">Cap Levels</div>
+                    <div class="rule-desc">
+                        <p><span style="color:#64748b">●</span> <strong>No Cap</strong>: 0 - 2,999 pts</p>
+                        <p><span style="color:#f97316">●</span> <strong>Orange Cap</strong>: 3,000 - 5,999 pts</p>
+                        <p><span style="color:#39ff14">●</span> <strong>Green Cap</strong>: 6,000 - 8,999 pts</p>
+                        <p><span style="color:#bc13fe">●</span> <strong>Purple Cap</strong>: 9,000 - 11,999 pts</p>
+                        <p><span style="color:#ffffff">●</span> <strong>Black Cap</strong>: 12,000+ pts</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users Modal -->
+    <div id="users-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close-users">&times;</span>
+            <h2>Registered Users</h2>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+                    <thead>
+                        <tr style="text-align: left; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">
+                            <th style="padding: 1rem;">ID</th>
+                            <th style="padding: 1rem;">Email</th>
+                            <th style="padding: 1rem;">Password</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-list-body">
+                        <!-- Users injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Reasons Modal -->
+    <div id="reasons-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close-reasons">&times;</span>
+            <h2>Manage Reasons</h2>
+            
+            <form id="reason-form" style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border-color);">
+                <input type="hidden" id="reason-id" value="-1">
+                <div style="display: grid; grid-template-columns: 1fr 2fr 1fr auto; gap: 1rem; align-items: end;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Reason</label>
+                        <input type="text" id="reason-text" required placeholder="Short reason">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Description</label>
+                        <input type="text" id="reason-desc" required placeholder="Detailed description">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Points</label>
+                        <input type="number" id="reason-points" required placeholder="Pts">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Cap Type</label>
+                        <select id="reason-cap" required>
+                            <option value="Orange">Orange</option>
+                            <option value="Green">Green</option>
+                            <option value="Purple">Purple</option>
+                            <option value="Black">Black</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn primary" style="margin-top: 0; height: 50px;">Save</button>
+                </div>
+            </form>
+
+            <div id="reasons-list" class="rules-list" style="max-height: 400px; overflow-y: auto;">
+                <!-- Reasons injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

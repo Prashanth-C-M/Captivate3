@@ -1,0 +1,28 @@
+{
+  "name": "ai-adoption-leaderboard",
+  "version": "1.3.0",
+  "main": "script.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Prashanth-C-M/ai-adoption-leaderboard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Prashanth-C-M/ai-adoption-leaderboard/issues"
+  },
+  "homepage": "https://github.com/Prashanth-C-M/ai-adoption-leaderboard#readme",
+  "description": "",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "multer": "^2.0.2",
+    "sqlite3": "^5.1.7",
+    "xlsx": "^0.18.5"
+  }
+}
