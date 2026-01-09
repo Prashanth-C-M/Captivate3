@@ -1,5 +1,6 @@
+require('dotenv').config();
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
 const multer = require('multer');
@@ -24,80 +25,85 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname))); // Serve static files
 
 // Database Setup
-const db = new sqlite3.Database('./database.db', (err) => {
-    if (err) {
-        console.error('Error opening database:', err.message);
-    } else {
-        console.log('Connected to SQLite database.');
-        initDb();
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
     }
 });
 
-function initDb() {
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE,
-        password TEXT
-    )`);
+pool.connect((err, client, release) => {
+    if (err) {
+        console.error('Error acquiring client', err.stack);
+    } else {
+        console.log('Connected to PostgreSQL database.');
+        initDb();
+        release();
+    }
+});
 
-    db.run(`CREATE TABLE IF NOT EXISTS teams (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        icon TEXT,
-        score INTEGER,
-        history TEXT
-    )`, (err) => {
-        if (err) {
-            console.error("Error creating table:", err);
-        }
-    });
+async function initDb() {
+    try {
+        await pool.query(`CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email TEXT UNIQUE,
+            password TEXT
+        )`);
 
-    // Create Reasons Mapping Table
-    db.run(`CREATE TABLE IF NOT EXISTS reason_mappings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        reason TEXT,
-        description TEXT,
-        points INTEGER,
-        cap_type TEXT DEFAULT 'Orange'
-    )`, (err) => {
-        if (err) {
-            console.error("Error creating reason_mappings table:", err);
-        } else {
-            // Check for missing column in existing table
-            db.all("PRAGMA table_info(reason_mappings)", (err, rows) => {
-                if (!err) {
-                    const hasCapType = rows.some(r => r.name === 'cap_type');
-                    if (!hasCapType) {
-                        db.run("ALTER TABLE reason_mappings ADD COLUMN cap_type TEXT DEFAULT 'Orange'", (err) => {
-                            if(err) console.error("Error adding cap_type column:", err);
-                            else console.log("Added cap_type column to reason_mappings");
-                        });
-                    }
-                }
-            });
+        await pool.query(`CREATE TABLE IF NOT EXISTS teams (
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            icon TEXT,
+            score INTEGER,
+            history TEXT
+        )`);
+
+        // Create Reasons Mapping Table
+        await pool.query(`CREATE TABLE IF NOT EXISTS reason_mappings (
+            id SERIAL PRIMARY KEY,
+            reason TEXT,
+            description TEXT,
+            points INTEGER,
+            cap_type TEXT DEFAULT 'Orange'
+        )`);
+        
+        // Check for missing column in existing table (cap_type)
+        // In Postgres, we can check information_schema or just try to add it and ignore error, 
+        // or check if it exists.
+        const res = await pool.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='reason_mappings' AND column_name='cap_type'
+        `);
+        
+        if (res.rows.length === 0) {
+             await pool.query("ALTER TABLE reason_mappings ADD COLUMN cap_type TEXT DEFAULT 'Orange'");
+             console.log("Added cap_type column to reason_mappings");
         }
-    });
+
+    } catch (err) {
+        console.error("Error initializing database:", err);
+    }
 }
 
 // API Routes - Auth
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
     const { email, password } = req.body;
-    db.run("INSERT INTO users (email, password) VALUES (?, ?)", [email, password], function(err) {
-        if (err) {
-            return res.status(400).json({ error: "User already exists or error occurred." });
-        }
+    try {
+        await pool.query("INSERT INTO users (email, password) VALUES ($1, $2)", [email, password]);
         res.json({ message: "Registered successfully. Please login." });
-    });
+    } catch (err) {
+        return res.status(400).json({ error: "User already exists or error occurred." });
+    }
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
-    console.log('Login attempt:', { email, password }); // Add this line
-    db.get("SELECT * FROM users WHERE email = ? AND password = ?", [email, password], (err, user) => {
-        if (err) {
-            console.error('Login database error:', err.message);
-            return res.status(500).json({ error: err.message });
-        }
+    console.log('Login attempt:', { email, password });
+    try {
+        const result = await pool.query("SELECT * FROM users WHERE email = $1 AND password = $2", [email, password]);
+        const user = result.rows[0];
+
         if (!user) {
             console.log('Login failed for user:', email);
             return res.status(401).json({ error: "Invalid credentials" });
@@ -105,146 +111,147 @@ app.post('/api/auth/login', (req, res) => {
         
         console.log('Login successful for user:', email);
         res.json({ message: "Login successful", user: { id: user.id, email: user.email } });
-    });
+    } catch (err) {
+        console.error('Login database error:', err.message);
+        return res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/auth/check', (req, res) => {
+app.post('/api/auth/check', async (req, res) => {
     const { email } = req.body;
-    db.get("SELECT id FROM users WHERE email = ?", [email], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ exists: !!row });
-    });
+    try {
+        const result = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
+        res.json({ exists: !!result.rows[0] });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
 });
 
 // API Routes - Reasons
-app.get('/api/reasons', (req, res) => {
-    db.all("SELECT * FROM reason_mappings", [], (err, rows) => {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
-        res.json(rows);
-    });
+app.get('/api/reasons', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM reason_mappings ORDER BY id ASC");
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/reasons', (req, res) => {
+app.post('/api/reasons', async (req, res) => {
     const { reason, description, points, cap_type } = req.body;
-    const sql = "INSERT INTO reason_mappings (reason, description, points, cap_type) VALUES (?, ?, ?, ?)";
+    const sql = "INSERT INTO reason_mappings (reason, description, points, cap_type) VALUES ($1, $2, $3, $4) RETURNING id";
     
-    db.run(sql, [reason, description, points, cap_type || 'Orange'], function(err) {
-        if (err) {
-            res.status(400).json({ error: err.message });
-            return;
-        }
-        res.json({ id: this.lastID, reason, description, points, cap_type: cap_type || 'Orange' });
-    });
+    try {
+        const result = await pool.query(sql, [reason, description, points, cap_type || 'Orange']);
+        res.json({ id: result.rows[0].id, reason, description, points, cap_type: cap_type || 'Orange' });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.put('/api/reasons/:id', (req, res) => {
+app.put('/api/reasons/:id', async (req, res) => {
     const { reason, description, points, cap_type } = req.body;
-    const sql = "UPDATE reason_mappings SET reason = ?, description = ?, points = ?, cap_type = ? WHERE id = ?";
+    const sql = "UPDATE reason_mappings SET reason = $1, description = $2, points = $3, cap_type = $4 WHERE id = $5";
     
-    db.run(sql, [reason, description, points, cap_type || 'Orange', req.params.id], function(err) {
-        if (err) {
-            res.status(400).json({ error: err.message });
-            return;
-        }
-        res.json({ message: "Updated", changes: this.changes });
-    });
+    try {
+        const result = await pool.query(sql, [reason, description, points, cap_type || 'Orange', req.params.id]);
+        res.json({ message: "Updated", changes: result.rowCount });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.delete('/api/reasons/:id', (req, res) => {
-    const sql = "DELETE FROM reason_mappings WHERE id = ?";
-    db.run(sql, req.params.id, function(err) {
-        if (err) {
-            res.status(400).json({ error: err.message });
-            return;
-        }
-        res.json({ message: "Deleted", changes: this.changes });
-    });
+app.delete('/api/reasons/:id', async (req, res) => {
+    const sql = "DELETE FROM reason_mappings WHERE id = $1";
+    try {
+        const result = await pool.query(sql, [req.params.id]);
+        res.json({ message: "Deleted", changes: result.rowCount });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
 // API Routes - Teams
-app.get('/api/teams', (req, res) => {
-    db.all("SELECT * FROM teams", [], (err, rows) => {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
+app.get('/api/teams', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM teams ORDER BY id ASC");
         // Parse history JSON
-        const teams = rows.map(row => ({
+        const teams = result.rows.map(row => ({
             ...row,
             history: JSON.parse(row.history || "[]")
         }));
         res.json(teams);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/teams', (req, res) => {
+app.post('/api/teams', async (req, res) => {
     const { name, icon, score, history } = req.body;
-    const sql = "INSERT INTO teams (name, icon, score, history) VALUES (?, ?, ?, ?)";
+    const sql = "INSERT INTO teams (name, icon, score, history) VALUES ($1, $2, $3, $4) RETURNING id";
     const params = [name, icon, score, JSON.stringify(history || [])];
     
-    db.run(sql, params, function(err) {
-        if (err) {
-            res.status(400).json({ error: err.message });
-            return;
-        }
+    try {
+        const result = await pool.query(sql, params);
         res.json({
-            id: this.lastID,
+            id: result.rows[0].id,
             name, icon, score, history
         });
-    });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.put('/api/teams/:id', (req, res) => {
+app.put('/api/teams/:id', async (req, res) => {
     const { name, icon, score, history } = req.body;
-    const sql = "UPDATE teams SET name = ?, icon = ?, score = ?, history = ? WHERE id = ?";
+    const sql = "UPDATE teams SET name = $1, icon = $2, score = $3, history = $4 WHERE id = $5";
     const params = [name, icon, score, JSON.stringify(history || []), req.params.id];
     
-    db.run(sql, params, function(err) {
-        if (err) {
-            res.status(400).json({ error: err.message });
-            return;
-        }
-        res.json({ message: "Updated", changes: this.changes });
-    });
+    try {
+        const result = await pool.query(sql, params);
+        res.json({ message: "Updated", changes: result.rowCount });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.delete('/api/teams/:id', (req, res) => {
-    const sql = "DELETE FROM teams WHERE id = ?";
-    db.run(sql, req.params.id, function(err) {
-        if (err) {
-            res.status(400).json({ error: err.message });
-            return;
-        }
-        res.json({ message: "Deleted", changes: this.changes });
-    });
+app.delete('/api/teams/:id', async (req, res) => {
+    const sql = "DELETE FROM teams WHERE id = $1";
+    try {
+        const result = await pool.query(sql, [req.params.id]);
+        res.json({ message: "Deleted", changes: result.rowCount });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
 // Admin Routes
-app.get('/api/users', checkAdmin, (req, res) => {
-    db.all("SELECT * FROM users", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
+app.get('/api/users', checkAdmin, async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM users ORDER BY id ASC");
+        res.json(result.rows);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
 });
 
-app.delete('/api/users/:id', checkAdmin, (req, res) => {
-    db.run("DELETE FROM users WHERE id = ?", req.params.id, function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "User deleted", changes: this.changes });
-    });
+app.delete('/api/users/:id', checkAdmin, async (req, res) => {
+    try {
+        const result = await pool.query("DELETE FROM users WHERE id = $1", [req.params.id]);
+        res.json({ message: "User deleted", changes: result.rowCount });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
 });
 
 // Import/Export Routes
 
 // Export Teams
-app.get('/api/teams/export', checkAdmin, (req, res) => {
-    db.all("SELECT * FROM teams", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+app.get('/api/teams/export', checkAdmin, async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM teams ORDER BY id ASC");
         
-        const worksheet = xlsx.utils.json_to_sheet(rows);
+        const worksheet = xlsx.utils.json_to_sheet(result.rows);
         const workbook = xlsx.utils.book_new();
         xlsx.utils.book_append_sheet(workbook, worksheet, "Teams");
         
@@ -253,12 +260,16 @@ app.get('/api/teams/export', checkAdmin, (req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename="teams.xlsx"');
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.send(buffer);
-    });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
 });
 
 // Import Teams
-app.post('/api/teams/import', checkAdmin, upload.single('file'), (req, res) => {
+app.post('/api/teams/import', checkAdmin, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    
+    const client = await pool.connect();
     
     try {
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
@@ -266,58 +277,48 @@ app.post('/api/teams/import', checkAdmin, upload.single('file'), (req, res) => {
         const sheet = workbook.Sheets[sheetName];
         const data = xlsx.utils.sheet_to_json(sheet);
         
-        const stmtCheck = db.prepare("SELECT id FROM teams WHERE name = ?");
-        const stmtUpdate = db.prepare("UPDATE teams SET icon = ?, score = ?, history = ? WHERE id = ?");
-        const stmtInsert = db.prepare("INSERT INTO teams (name, icon, score, history) VALUES (?, ?, ?, ?)");
-        
-        const promises = data.map(row => {
-            return new Promise((resolve, reject) => {
-                const name = row.name;
-                const icon = row.icon || 'fa-brain';
-                const score = row.score || 0;
-                let history = row.history || '[]';
-                if (typeof history !== 'string') history = JSON.stringify(history);
+        await client.query('BEGIN');
 
-                stmtCheck.get(name, (err, existing) => {
-                    if (err) return reject(err);
-                    if (existing) {
-                        stmtUpdate.run(icon, score, history, existing.id, (err) => {
-                            if (err) reject(err); else resolve();
-                        });
-                    } else {
-                        stmtInsert.run(name, icon, score, history, (err) => {
-                            if (err) reject(err); else resolve();
-                        });
-                    }
-                });
-            });
-        });
+        for (const row of data) {
+            const name = row.name;
+            const icon = row.icon || 'fa-brain';
+            const score = row.score || 0;
+            let history = row.history || '[]';
+            if (typeof history !== 'string') history = JSON.stringify(history);
 
-        Promise.all(promises)
-            .then(() => {
-                stmtCheck.finalize();
-                stmtUpdate.finalize();
-                stmtInsert.finalize();
-                res.json({ message: "Teams imported successfully", count: data.length });
-            })
-            .catch(error => {
-                stmtCheck.finalize();
-                stmtUpdate.finalize();
-                stmtInsert.finalize();
-                res.status(500).json({ error: "Database error during import: " + error.message });
-            });
+            const checkRes = await client.query("SELECT id FROM teams WHERE name = $1", [name]);
+            
+            if (checkRes.rows.length > 0) {
+                const existingId = checkRes.rows[0].id;
+                await client.query(
+                    "UPDATE teams SET icon = $1, score = $2, history = $3 WHERE id = $4",
+                    [icon, score, history, existingId]
+                );
+            } else {
+                await client.query(
+                    "INSERT INTO teams (name, icon, score, history) VALUES ($1, $2, $3, $4)",
+                    [name, icon, score, history]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ message: "Teams imported successfully", count: data.length });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         res.status(500).json({ error: "Failed to process file: " + error.message });
+    } finally {
+        client.release();
     }
 });
 
 // Export Reasons
-app.get('/api/reasons/export', checkAdmin, (req, res) => {
-    db.all("SELECT * FROM reason_mappings", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+app.get('/api/reasons/export', checkAdmin, async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM reason_mappings ORDER BY id ASC");
         
-        const worksheet = xlsx.utils.json_to_sheet(rows);
+        const worksheet = xlsx.utils.json_to_sheet(result.rows);
         const workbook = xlsx.utils.book_new();
         xlsx.utils.book_append_sheet(workbook, worksheet, "Reasons");
         
@@ -326,61 +327,55 @@ app.get('/api/reasons/export', checkAdmin, (req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename="reasons.xlsx"');
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.send(buffer);
-    });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
 });
 
 // Import Reasons
-app.post('/api/reasons/import', checkAdmin, upload.single('file'), (req, res) => {
+app.post('/api/reasons/import', checkAdmin, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     
+    const client = await pool.connect();
+
     try {
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const data = xlsx.utils.sheet_to_json(sheet);
         
-        const stmtCheck = db.prepare("SELECT id FROM reason_mappings WHERE reason = ?");
-        const stmtUpdate = db.prepare("UPDATE reason_mappings SET description = ?, points = ?, cap_type = ? WHERE id = ?");
-        const stmtInsert = db.prepare("INSERT INTO reason_mappings (reason, description, points, cap_type) VALUES (?, ?, ?, ?)");
-        
-        const promises = data.map(row => {
-            return new Promise((resolve, reject) => {
-                const reason = row.reason;
-                const description = row.description || '';
-                const points = row.points || 0;
-                const cap_type = row.cap_type || 'Orange';
+        await client.query('BEGIN');
 
-                stmtCheck.get(reason, (err, existing) => {
-                    if (err) return reject(err);
-                    if (existing) {
-                        stmtUpdate.run(description, points, cap_type, existing.id, (err) => {
-                            if (err) reject(err); else resolve();
-                        });
-                    } else {
-                        stmtInsert.run(reason, description, points, cap_type, (err) => {
-                            if (err) reject(err); else resolve();
-                        });
-                    }
-                });
-            });
-        });
+        for (const row of data) {
+            const reason = row.reason;
+            const description = row.description || '';
+            const points = row.points || 0;
+            const cap_type = row.cap_type || 'Orange';
 
-        Promise.all(promises)
-            .then(() => {
-                stmtCheck.finalize();
-                stmtUpdate.finalize();
-                stmtInsert.finalize();
-                res.json({ message: "Reasons imported successfully", count: data.length });
-            })
-            .catch(error => {
-                stmtCheck.finalize();
-                stmtUpdate.finalize();
-                stmtInsert.finalize();
-                res.status(500).json({ error: "Database error during import: " + error.message });
-            });
+            const checkRes = await client.query("SELECT id FROM reason_mappings WHERE reason = $1", [reason]);
+            
+            if (checkRes.rows.length > 0) {
+                const existingId = checkRes.rows[0].id;
+                await client.query(
+                    "UPDATE reason_mappings SET description = $1, points = $2, cap_type = $3 WHERE id = $4",
+                    [description, points, cap_type, existingId]
+                );
+            } else {
+                await client.query(
+                    "INSERT INTO reason_mappings (reason, description, points, cap_type) VALUES ($1, $2, $3, $4)",
+                    [reason, description, points, cap_type]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ message: "Reasons imported successfully", count: data.length });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         res.status(500).json({ error: "Failed to process file: " + error.message });
+    } finally {
+        client.release();
     }
 });
 
