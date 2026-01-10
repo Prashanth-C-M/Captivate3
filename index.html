@@ -113,23 +113,23 @@
             <!-- Podium will be injected here -->
         </div>
 
-        <div id="admin-actions" style="display: flex; justify-content: center; gap: 1rem; margin: 1.5rem auto;">
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <span style="color: var(--text-secondary); font-size: 0.9rem;">Teams:</span>
+        <div id="admin-actions" class="admin-toolbar">
+            <div class="admin-group">
+                <span class="admin-label">Teams:</span>
                 <button id="export-teams-btn" class="btn secondary" title="Export Teams"><i class="fa-solid fa-download"></i> Export</button>
                 <input type="file" id="import-teams-file" hidden accept=".xlsx, .xls">
                 <button id="import-teams-btn" class="btn secondary" title="Import Teams"><i class="fa-solid fa-upload"></i> Import</button>
             </div>
             
-            <div style="display: flex; gap: 0.5rem; align-items: center; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 1rem;">
-                <span style="color: var(--text-secondary); font-size: 0.9rem;">Reasons:</span>
+            <div class="admin-group bordered">
+                <span class="admin-label">Reasons:</span>
                 <button id="export-reasons-btn" class="btn secondary" title="Export Reasons"><i class="fa-solid fa-download"></i> Export</button>
                 <input type="file" id="import-reasons-file" hidden accept=".xlsx, .xls">
                 <button id="import-reasons-btn" class="btn secondary" title="Import Reasons"><i class="fa-solid fa-upload"></i> Import</button>
             </div>
             
-            <div style="display: flex; gap: 0.5rem; align-items: center; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 1rem;">
-                <span style="color: var(--text-secondary); font-size: 0.9rem;">Users:</span>
+            <div class="admin-group bordered">
+                <span class="admin-label">Users:</span>
                 <button id="view-users-btn" class="btn secondary" title="View Users"><i class="fa-solid fa-users"></i> View</button>
             </div>
         </div>

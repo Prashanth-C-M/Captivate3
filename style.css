@@ -1083,6 +1083,9 @@ input:focus, select:focus {
     .charts-grid { grid-template-columns: 1fr; }
     .podium-display { gap: 0.5rem; }
     .podium-item { width: 100px; }
+    .simple-stats-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Fireworks */
@@ -1313,8 +1316,101 @@ input:focus, select:focus {
     text-shadow: 0 0 5px rgba(57, 255, 20, 0.4);
 }
 
-@media (max-width: 768px) {
-    .simple-stats-grid {
-        grid-template-columns: 1fr;
+/* Admin Toolbar */
+.admin-toolbar {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: 1.5rem auto;
+}
+
+.admin-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.admin-group.bordered {
+    border-left: 1px solid rgba(255,255,255,0.1);
+    padding-left: 1rem;
+}
+
+.admin-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+    body { padding: 1rem; }
+    
+    h1 { font-size: 1.8rem; }
+    .captivate-logo { width: 60px; height: 80px; }
+    .captivate-logo .cap-icon { width: 40px; height: 40px; }
+    
+    .header-actions { flex-direction: column; width: 100%; gap: 0.8rem; }
+    .btn { width: 100%; justify-content: center; }
+    
+    .podium-display { height: 250px; margin-bottom: 2rem; }
+    .podium-item { width: 80px; }
+    .podium-rank { font-size: 1.5rem; }
+    .podium-icon { width: 50px; height: 50px; font-size: 1.5rem; }
+    .podium-1 .podium-icon { width: 60px; height: 60px; font-size: 1.8rem; }
+    
+    .leaderboard-header { display: none; }
+    
+    .leaderboard-row {
+        flex-wrap: wrap;
+        padding: 1rem;
+        gap: 0.5rem;
+        position: relative;
     }
+    
+    .col { width: auto; }
+    
+    .col.rank { 
+        position: absolute; 
+        top: 1rem; left: 1rem; 
+        font-size: 1.2rem; 
+        width: auto;
+    }
+    
+    .col.team {
+        width: 100%;
+        margin-left: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .col.score {
+        width: 50%;
+        font-size: 1.5rem;
+        justify-content: flex-start;
+    }
+    
+    .col.cap-level {
+        width: 50%;
+        justify-content: flex-end;
+    }
+    
+    .col.actions {
+        width: 100%;
+        justify-content: flex-end;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .modal-content { padding: 1.5rem; }
+    .dashboard-stats { grid-template-columns: 1fr; }
+    
+    .admin-toolbar { flex-direction: column; align-items: stretch; }
+    .admin-group { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+    .admin-group.bordered { border-left: none; padding-left: 0; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; }
+    
+    /* Reasons form on mobile */
+    #reason-form > div { grid-template-columns: 1fr; }
+    #reasons-list .rule-item { flex-direction: column; align-items: flex-start; }
+    #reasons-list .rule-points { min-width: auto; margin-bottom: 0.5rem; }
+    
+    /* Auth */
+    .auth-box { padding: 1.5rem; width: 95%; }
 }
