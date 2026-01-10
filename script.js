@@ -20,6 +20,7 @@ function initAuth() {
         document.getElementById('app-container').classList.remove('hidden');
         
         const manageBtn = document.getElementById('manage-reasons-btn');
+        const manageQuestsBtn = document.getElementById('manage-quests-btn');
         const adminActions = document.getElementById('admin-actions');
         const adminButtons = adminActions ? adminActions.querySelectorAll('button') : [];
 
@@ -28,6 +29,11 @@ function initAuth() {
                 manageBtn.disabled = false;
                 manageBtn.title = "Manage Reasons";
                 manageBtn.classList.remove('hidden'); 
+            }
+            if (manageQuestsBtn) {
+                manageQuestsBtn.disabled = false;
+                manageQuestsBtn.title = "Manage Quests";
+                manageQuestsBtn.classList.remove('hidden');
             }
             // Enable Admin Actions
             adminButtons.forEach(btn => {
@@ -40,6 +46,10 @@ function initAuth() {
                 manageBtn.disabled = true;
                 manageBtn.title = "Admin Access Only";
                 manageBtn.classList.remove('hidden');
+            }
+            if (manageQuestsBtn) {
+                manageQuestsBtn.disabled = true;
+                manageQuestsBtn.classList.add('hidden');
             }
             // Disable Admin Actions
             adminButtons.forEach(btn => {
@@ -203,18 +213,18 @@ if(formForgot) {
 
 // Initial Data (Empty - fetched from API)
 let teams = [];
-
 let reasonMappings = [];
+let quests = [];
 
 // API Interaction
 async function fetchTeams() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/teams`);
+        const response = await fetch(`${API_BASE_URL}/api/team-members`);
         if (!response.ok) throw new Error('Failed to fetch');
         teams = await response.json();
         renderLeaderboard();
     } catch (error) {
-        console.error("Error fetching teams:", error);
+        console.error("Error fetching team members:", error);
     }
 }
 
@@ -226,6 +236,17 @@ async function fetchReasons() {
         // Don't populate here, wait for team context
     } catch (error) {
         console.error("Error fetching reasons:", error);
+    }
+}
+
+async function fetchQuests() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/quests`);
+        if (!response.ok) throw new Error('Failed to fetch quests');
+        quests = await response.json();
+        renderQuests(quests);
+    } catch (error) {
+        console.error("Error fetching quests:", error);
     }
 }
 
@@ -311,6 +332,25 @@ const manageReasonsBtn = document.getElementById('manage-reasons-btn');
 const closeReasonsBtn = document.querySelector('.close-reasons');
 const reasonForm = document.getElementById('reason-form');
 const reasonsList = document.getElementById('reasons-list');
+
+// Quests Modal Elements
+const questsModal = document.getElementById('quests-modal');
+const viewQuestsBtn = document.getElementById('view-quests-btn');
+const closeQuestsBtn = document.querySelector('.close-quests');
+const questsList = document.getElementById('quests-list');
+
+// Manage Quests Modal Elements
+const manageQuestsModal = document.getElementById('manage-quests-modal');
+const manageQuestsBtn = document.getElementById('manage-quests-btn');
+const closeManageQuestsBtn = document.querySelector('.close-manage-quests');
+const manageQuestForm = document.getElementById('manage-quest-form');
+const manageQuestsList = document.getElementById('manage-quests-list');
+
+// Claim Modal Elements
+const claimModal = document.getElementById('claim-modal');
+const closeClaimBtn = document.querySelector('.close-claim');
+const claimForm = document.getElementById('claim-form');
+const claimTeamSelect = document.getElementById('claim-team-select');
 
 // Users Modal Elements
 const usersModal = document.getElementById('users-modal');
@@ -457,7 +497,7 @@ function renderLeaderboard() {
 const exportTeamsBtn = document.getElementById('export-teams-btn');
 if(exportTeamsBtn) {
     exportTeamsBtn.addEventListener('click', () => {
-         window.location.href = `${API_BASE_URL}/api/teams/export?email=${encodeURIComponent(currentUser)}`;
+         window.location.href = `${API_BASE_URL}/api/team-members/export?email=${encodeURIComponent(currentUser)}`;
     });
 }
 
@@ -471,7 +511,7 @@ if(importTeamsBtn && importTeamsFile) {
             formData.append('file', e.target.files[0]);
             
             try {
-                const res = await fetch(`${API_BASE_URL}/api/teams/import`, {
+                const res = await fetch(`${API_BASE_URL}/api/team-members/import`, {
                     method: 'POST',
                     headers: { 'x-user-email': currentUser },
                     body: formData
@@ -524,7 +564,7 @@ addTeamBtn.addEventListener('click', () => {
     // Reset Form for Add
     document.getElementById('team-form').reset();
     document.getElementById('edit-index').value = -1;
-    document.getElementById('modal-title').textContent = "Add New Team";
+    document.getElementById('modal-title').textContent = "Add New Member";
     document.getElementById('current-score-display').textContent = "0";
     
     populateReasonDropdown(null); // Load initial reasons (Orange)
@@ -841,6 +881,13 @@ closeViewBtn.addEventListener('click', closeView);
 closeReportBtn.addEventListener('click', closeReport);
 if(viewUsersBtn) viewUsersBtn.addEventListener('click', openUsersModal);
 if(closeUsersBtn) closeUsersBtn.addEventListener('click', closeUsersModal);
+if(viewQuestsBtn) viewQuestsBtn.addEventListener('click', openQuests);
+if(closeQuestsBtn) closeQuestsBtn.addEventListener('click', closeQuests);
+if(closeClaimBtn) closeClaimBtn.addEventListener('click', closeClaim);
+if(claimForm) claimForm.addEventListener('submit', handleClaimSubmit);
+if(manageQuestsBtn) manageQuestsBtn.addEventListener('click', openManageQuests);
+if(closeManageQuestsBtn) closeManageQuestsBtn.addEventListener('click', closeManageQuests);
+if(manageQuestForm) manageQuestForm.addEventListener('submit', handleQuestSubmit);
 
 function openRules() {
     rulesModal.style.display = 'flex';
@@ -848,6 +895,225 @@ function openRules() {
 
 function closeRules() {
     rulesModal.style.display = 'none';
+}
+
+function openQuests() {
+    questsModal.style.display = 'flex';
+    fetchQuests(); // Refresh
+}
+
+function closeQuests() {
+    questsModal.style.display = 'none';
+}
+
+function closeClaim() {
+    claimModal.style.display = 'none';
+}
+
+function openManageQuests() {
+    manageQuestsModal.style.display = 'flex';
+    renderManageQuestsList();
+}
+
+function closeManageQuests() {
+    manageQuestsModal.style.display = 'none';
+}
+
+window.filterQuests = function(category) {
+    document.querySelectorAll('.quest-tab').forEach(t => t.classList.remove('active'));
+    // Find clicked tab (event.target is not passed, so find by text or just add event listener properly)
+    // Simplified: Find the button with this onclick text
+    const buttons = document.querySelectorAll('.quest-tab');
+    buttons.forEach(b => {
+        if(b.getAttribute('onclick').includes(category)) b.classList.add('active');
+    });
+
+    if (category === 'all') {
+        renderQuests(quests);
+    } else {
+        const filtered = quests.filter(q => q.category === category);
+        renderQuests(filtered);
+    }
+};
+
+function renderQuests(data) {
+    questsList.innerHTML = '';
+    data.forEach(q => {
+        const div = document.createElement('div');
+        div.className = 'quest-card';
+        div.dataset.category = q.category;
+        
+        div.innerHTML = `
+            <div class="quest-icon"><i class="fa-solid ${q.icon || 'fa-scroll'}"></i></div>
+            <div class="quest-title">${q.title}</div>
+            <div class="quest-desc">${q.description}</div>
+            <div class="quest-footer">
+                <div class="quest-points">+${q.points} pts</div>
+                <button class="btn secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="claimQuest(${q.id})">Claim</button>
+            </div>
+        `;
+        questsList.appendChild(div);
+    });
+}
+
+function renderManageQuestsList() {
+    manageQuestsList.innerHTML = '';
+    quests.forEach(q => {
+        const div = document.createElement('div');
+        div.className = 'quest-card';
+        div.dataset.category = q.category;
+        
+        div.innerHTML = `
+            <div class="quest-icon"><i class="fa-solid ${q.icon || 'fa-scroll'}"></i></div>
+            <div class="quest-title">${q.title}</div>
+            <div class="quest-desc">${q.description}</div>
+            <div class="quest-footer" style="flex-direction: column; gap: 0.5rem; align-items: stretch;">
+                <div style="display: flex; justify-content: space-between;">
+                    <div class="quest-points">+${q.points} pts</div>
+                    <div>${q.category}</div>
+                </div>
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.5rem;">
+                    <button class="btn edit" onclick="editQuest(${q.id})"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn danger" onclick="deleteQuest(${q.id})"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+        `;
+        manageQuestsList.appendChild(div);
+    });
+}
+
+window.editQuest = function(id) {
+    const quest = quests.find(q => q.id === id);
+    if(quest) {
+        document.getElementById('manage-quest-id').value = quest.id;
+        document.getElementById('manage-quest-title').value = quest.title;
+        document.getElementById('manage-quest-desc').value = quest.description;
+        document.getElementById('manage-quest-points').value = quest.points;
+        document.getElementById('manage-quest-category').value = quest.category;
+        document.getElementById('manage-quest-icon').value = quest.icon;
+    }
+};
+
+window.deleteQuest = async function(id) {
+    if(confirm('Delete this quest?')) {
+        try {
+            await fetch(`${API_BASE_URL}/api/quests/${id}`, {
+                method: 'DELETE',
+                headers: { 'x-user-email': currentUser }
+            });
+            await fetchQuests(); // Refresh data
+            renderManageQuestsList(); // Re-render admin list
+        } catch (e) {
+            console.error(e);
+            alert("Error deleting quest");
+        }
+    }
+};
+
+async function handleQuestSubmit(e) {
+    e.preventDefault();
+    const id = parseInt(document.getElementById('manage-quest-id').value);
+    const title = document.getElementById('manage-quest-title').value.trim();
+    const description = document.getElementById('manage-quest-desc').value;
+    const points = parseInt(document.getElementById('manage-quest-points').value);
+    const category = document.getElementById('manage-quest-category').value;
+    const icon = document.getElementById('manage-quest-icon').value;
+
+    const method = id > -1 ? 'PUT' : 'POST';
+    const url = id > -1 ? `${API_BASE_URL}/api/quests/${id}` : `${API_BASE_URL}/api/quests`;
+
+    try {
+        const res = await fetch(url, {
+            method: method,
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-email': currentUser
+            },
+            body: JSON.stringify({ title, description, points, category, icon })
+        });
+
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || "Failed to save");
+        }
+
+        // Reset form
+        document.getElementById('manage-quest-id').value = -1;
+        document.getElementById('manage-quest-form').reset();
+        
+        await fetchQuests(); // Refresh global data
+        renderManageQuestsList();
+        
+    } catch (e) {
+        console.error("Submit error:", e);
+        alert('Error saving quest: ' + e.message);
+    }
+}
+
+window.claimQuest = function(id) {
+    const quest = quests.find(q => q.id === id);
+    if(!quest) return;
+
+    document.getElementById('claim-quest-title').textContent = `Claim: ${quest.title}`;
+    document.getElementById('claim-quest-points').value = quest.points;
+    document.getElementById('claim-quest-name').value = quest.title;
+    
+    // Populate team select
+    claimTeamSelect.innerHTML = '<option value="" disabled selected>Select member...</option>';
+    teams.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.name;
+        claimTeamSelect.appendChild(opt);
+    });
+
+    claimModal.style.display = 'flex';
+};
+
+async function handleClaimSubmit(e) {
+    e.preventDefault();
+    const teamId = claimTeamSelect.value;
+    const points = parseInt(document.getElementById('claim-quest-points').value);
+    const questTitle = document.getElementById('claim-quest-name').value;
+
+    if (!teamId) {
+        alert("Please select a team member.");
+        return;
+    }
+
+    const team = teams.find(t => t.id == teamId);
+    if (!team) return;
+
+    // Update team score
+    const newScore = team.score + points;
+    const newHistory = team.history || [];
+    newHistory.push({ 
+        points: points, 
+        reason: `Quest Completed: ${questTitle}`, 
+        date: new Date().toISOString() 
+    });
+
+    try {
+        const updatedTeam = { ...team, score: newScore, history: newHistory };
+        const res = await fetch(`${API_BASE_URL}/api/team-members/${team.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedTeam)
+        });
+
+        if (res.ok) {
+            alert(`Congratulations! ${points} points added to ${team.name}.`);
+            closeClaim();
+            closeQuests(); // Close quest modal too
+            await fetchTeams(); // Refresh leaderboard
+            launchFireworks(); // Celebration!
+        } else {
+            alert("Failed to claim quest.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error.");
+    }
 }
 
 function openModal(isEdit) {
@@ -971,6 +1237,9 @@ window.addEventListener('click', (e) => {
     if (e.target === viewModal) closeView();
     if (e.target === reportModal) closeReport();
     if (e.target === usersModal) closeUsersModal();
+    if (e.target === questsModal) closeQuests();
+    if (e.target === claimModal) closeClaim();
+    if (e.target === manageQuestsModal) closeManageQuests();
 });
 
 // Form Submission (Add / Edit)
@@ -1006,14 +1275,14 @@ teamForm.addEventListener('submit', async (e) => {
 
             const updatedTeam = { ...team, name, icon, score: newScore, history: newHistory };
             
-            await fetch(`${API_BASE_URL}/api/teams/${team.id}`, {
+            await fetch(`${API_BASE_URL}/api/team-members/${team.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedTeam)
             });
 
         } else {
-            // Add New Team
+            // Add New Member
             let initialScore = isNaN(pointsToAdd) ? 0 : pointsToAdd;
             let history = [];
             if (initialScore !== 0) {
@@ -1027,7 +1296,7 @@ teamForm.addEventListener('submit', async (e) => {
                 history: history
             };
 
-            await fetch(`${API_BASE_URL}/api/teams`, {
+            await fetch(`${API_BASE_URL}/api/team-members`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newTeamData)
@@ -1136,10 +1405,10 @@ window.deleteTeam = async function(index) {
     const team = teams[index];
     if(confirm(`Are you sure you want to delete ${team.name}?`)) {
         try {
-            await fetch(`${API_BASE_URL}/api/teams/${team.id}`, { method: 'DELETE' });
+            await fetch(`${API_BASE_URL}/api/team-members/${team.id}`, { method: 'DELETE' });
             await fetchTeams();
         } catch (error) {
-            console.error("Error deleting team:", error);
+            console.error("Error deleting team member:", error);
         }
     }
 };

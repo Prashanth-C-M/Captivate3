@@ -50,7 +50,7 @@ async function initDb() {
             password TEXT
         )`);
 
-        await pool.query(`CREATE TABLE IF NOT EXISTS teams (
+        await pool.query(`CREATE TABLE IF NOT EXISTS team_members (
             id SERIAL PRIMARY KEY,
             name TEXT,
             icon TEXT,
@@ -66,6 +66,35 @@ async function initDb() {
             points INTEGER,
             cap_type TEXT DEFAULT 'Orange'
         )`);
+
+        // Create Quests Table
+        await pool.query(`CREATE TABLE IF NOT EXISTS quests (
+            id SERIAL PRIMARY KEY,
+            title TEXT,
+            description TEXT,
+            points INTEGER,
+            category TEXT,
+            icon TEXT
+        )`);
+
+        // Seed Quests if empty
+        const questCount = await pool.query("SELECT count(*) FROM quests");
+        if (parseInt(questCount.rows[0].count) === 0) {
+            const seedQuests = [
+                { title: 'Cloud Certification', description: 'Complete a recognized cloud certification (AWS/Azure/GCP)', points: 500, category: 'Training', icon: 'fa-cloud' },
+                { title: 'Tech Book Review', description: 'Read a technical book and share key takeaways', points: 150, category: 'Training', icon: 'fa-book' },
+                { title: 'Reusable Component', description: 'Develop and publish a reusable code component or library', points: 300, category: 'Assets', icon: 'fa-cubes' },
+                { title: 'Tech Blog Post', description: 'Write and publish a technical blog post', points: 200, category: 'Assets', icon: 'fa-pen-nib' },
+                { title: 'Junior Mentorship', description: 'Mentor a junior developer for a sprint', points: 400, category: 'Mentorship', icon: 'fa-user-group' },
+                { title: 'Knowledge Session', description: 'Host a knowledge sharing session (KT) for the team', points: 250, category: 'Mentorship', icon: 'fa-chalkboard-user' }
+            ];
+            
+            for (const q of seedQuests) {
+                await pool.query("INSERT INTO quests (title, description, points, category, icon) VALUES ($1, $2, $3, $4, $5)", 
+                    [q.title, q.description, q.points, q.category, q.icon]);
+            }
+            console.log("Seeded initial quests");
+        }
         
         // Check for missing column in existing table (cap_type)
         // In Postgres, we can check information_schema or just try to add it and ignore error, 
@@ -137,6 +166,51 @@ app.get('/api/reasons', async (req, res) => {
     }
 });
 
+// API Routes - Quests
+app.get('/api/quests', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM quests ORDER BY category, title");
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/quests', checkAdmin, async (req, res) => {
+    const { title, description, points, category, icon } = req.body;
+    try {
+        const result = await pool.query(
+            "INSERT INTO quests (title, description, points, category, icon) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+            [title, description, points, category, icon]
+        );
+        res.json({ id: result.rows[0].id, title, description, points, category, icon });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.put('/api/quests/:id', checkAdmin, async (req, res) => {
+    const { title, description, points, category, icon } = req.body;
+    try {
+        const result = await pool.query(
+            "UPDATE quests SET title = $1, description = $2, points = $3, category = $4, icon = $5 WHERE id = $6",
+            [title, description, points, category, icon, req.params.id]
+        );
+        res.json({ message: "Updated", changes: result.rowCount });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.delete('/api/quests/:id', checkAdmin, async (req, res) => {
+    try {
+        const result = await pool.query("DELETE FROM quests WHERE id = $1", [req.params.id]);
+        res.json({ message: "Deleted", changes: result.rowCount });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
 app.post('/api/reasons', async (req, res) => {
     const { reason, description, points, cap_type } = req.body;
     const sql = "INSERT INTO reason_mappings (reason, description, points, cap_type) VALUES ($1, $2, $3, $4) RETURNING id";
@@ -171,24 +245,24 @@ app.delete('/api/reasons/:id', async (req, res) => {
     }
 });
 
-// API Routes - Teams
-app.get('/api/teams', async (req, res) => {
+// API Routes - Team Members
+app.get('/api/team-members', async (req, res) => {
     try {
-        const result = await pool.query("SELECT * FROM teams ORDER BY id ASC");
+        const result = await pool.query("SELECT * FROM team_members ORDER BY id ASC");
         // Parse history JSON
-        const teams = result.rows.map(row => ({
+        const members = result.rows.map(row => ({
             ...row,
             history: JSON.parse(row.history || "[]")
         }));
-        res.json(teams);
+        res.json(members);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.post('/api/teams', async (req, res) => {
+app.post('/api/team-members', async (req, res) => {
     const { name, icon, score, history } = req.body;
-    const sql = "INSERT INTO teams (name, icon, score, history) VALUES ($1, $2, $3, $4) RETURNING id";
+    const sql = "INSERT INTO team_members (name, icon, score, history) VALUES ($1, $2, $3, $4) RETURNING id";
     const params = [name, icon, score, JSON.stringify(history || [])];
     
     try {
@@ -202,9 +276,9 @@ app.post('/api/teams', async (req, res) => {
     }
 });
 
-app.put('/api/teams/:id', async (req, res) => {
+app.put('/api/team-members/:id', async (req, res) => {
     const { name, icon, score, history } = req.body;
-    const sql = "UPDATE teams SET name = $1, icon = $2, score = $3, history = $4 WHERE id = $5";
+    const sql = "UPDATE team_members SET name = $1, icon = $2, score = $3, history = $4 WHERE id = $5";
     const params = [name, icon, score, JSON.stringify(history || []), req.params.id];
     
     try {
@@ -215,8 +289,8 @@ app.put('/api/teams/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/teams/:id', async (req, res) => {
-    const sql = "DELETE FROM teams WHERE id = $1";
+app.delete('/api/team-members/:id', async (req, res) => {
+    const sql = "DELETE FROM team_members WHERE id = $1";
     try {
         const result = await pool.query(sql, [req.params.id]);
         res.json({ message: "Deleted", changes: result.rowCount });
@@ -246,18 +320,18 @@ app.delete('/api/users/:id', checkAdmin, async (req, res) => {
 
 // Import/Export Routes
 
-// Export Teams
-app.get('/api/teams/export', checkAdmin, async (req, res) => {
+// Export Team Members
+app.get('/api/team-members/export', checkAdmin, async (req, res) => {
     try {
-        const result = await pool.query("SELECT * FROM teams ORDER BY id ASC");
+        const result = await pool.query("SELECT * FROM team_members ORDER BY id ASC");
         
         const worksheet = xlsx.utils.json_to_sheet(result.rows);
         const workbook = xlsx.utils.book_new();
-        xlsx.utils.book_append_sheet(workbook, worksheet, "Teams");
+        xlsx.utils.book_append_sheet(workbook, worksheet, "TeamMembers");
         
         const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
         
-        res.setHeader('Content-Disposition', 'attachment; filename="teams.xlsx"');
+        res.setHeader('Content-Disposition', 'attachment; filename="team_members.xlsx"');
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.send(buffer);
     } catch (err) {
@@ -265,8 +339,8 @@ app.get('/api/teams/export', checkAdmin, async (req, res) => {
     }
 });
 
-// Import Teams
-app.post('/api/teams/import', checkAdmin, upload.single('file'), async (req, res) => {
+// Import Team Members
+app.post('/api/team-members/import', checkAdmin, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     
     const client = await pool.connect();
@@ -286,24 +360,24 @@ app.post('/api/teams/import', checkAdmin, upload.single('file'), async (req, res
             let history = row.history || '[]';
             if (typeof history !== 'string') history = JSON.stringify(history);
 
-            const checkRes = await client.query("SELECT id FROM teams WHERE name = $1", [name]);
+            const checkRes = await client.query("SELECT id FROM team_members WHERE name = $1", [name]);
             
             if (checkRes.rows.length > 0) {
                 const existingId = checkRes.rows[0].id;
                 await client.query(
-                    "UPDATE teams SET icon = $1, score = $2, history = $3 WHERE id = $4",
+                    "UPDATE team_members SET icon = $1, score = $2, history = $3 WHERE id = $4",
                     [icon, score, history, existingId]
                 );
             } else {
                 await client.query(
-                    "INSERT INTO teams (name, icon, score, history) VALUES ($1, $2, $3, $4)",
+                    "INSERT INTO team_members (name, icon, score, history) VALUES ($1, $2, $3, $4)",
                     [name, icon, score, history]
                 );
             }
         }
 
         await client.query('COMMIT');
-        res.json({ message: "Teams imported successfully", count: data.length });
+        res.json({ message: "Team Members imported successfully", count: data.length });
 
     } catch (error) {
         await client.query('ROLLBACK');

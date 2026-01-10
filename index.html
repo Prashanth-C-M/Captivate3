@@ -100,10 +100,12 @@
                 </div>
             </div>
             <div class="header-actions">
-                <button id="add-team-btn" class="btn primary"><i class="fa-solid fa-plus"></i> Add Team</button>
+                <button id="add-team-btn" class="btn primary"><i class="fa-solid fa-plus"></i> Add Member</button>
                 <button id="view-report-btn" class="btn secondary"><i class="fa-solid fa-chart-line"></i> Insights Report</button>
+                <button id="view-quests-btn" class="btn secondary"><i class="fa-solid fa-scroll"></i> Quests</button>
                 <button id="view-rules-btn" class="btn secondary"><i class="fa-solid fa-info-circle"></i> Pointing System</button>
                 <button id="manage-reasons-btn" class="btn secondary"><i class="fa-solid fa-list-check"></i> Manage Reasons</button>
+                <button id="manage-quests-btn" class="btn secondary hidden" title="Manage Quests"><i class="fa-solid fa-dragon"></i> Manage Quests</button>
                 
                 <button id="logout-btn" class="btn danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
             </div>
@@ -115,10 +117,10 @@
 
         <div id="admin-actions" class="admin-toolbar">
             <div class="admin-group">
-                <span class="admin-label">Teams:</span>
-                <button id="export-teams-btn" class="btn secondary" title="Export Teams"><i class="fa-solid fa-download"></i> Export</button>
+                <span class="admin-label">Team Members:</span>
+                <button id="export-teams-btn" class="btn secondary" title="Export Members"><i class="fa-solid fa-download"></i> Export</button>
                 <input type="file" id="import-teams-file" hidden accept=".xlsx, .xls">
-                <button id="import-teams-btn" class="btn secondary" title="Import Teams"><i class="fa-solid fa-upload"></i> Import</button>
+                <button id="import-teams-btn" class="btn secondary" title="Import Members"><i class="fa-solid fa-upload"></i> Import</button>
             </div>
             
             <div class="admin-group bordered">
@@ -137,7 +139,7 @@
         <div class="leaderboard-container">
             <div class="leaderboard-header">
                 <div class="col rank">Rank</div>
-                <div class="col team">Team</div>
+                <div class="col team">Team Member</div>
                 <div class="col score">Score</div>
                 <div class="col cap-level">Level Cap</div>
                 <div class="col actions">Actions</div>
@@ -158,7 +160,7 @@
                     <i class="fa-solid fa-graduation-cap"></i>
                 </div>
                 <div class="dashboard-info">
-                    <h2 id="view-name">Team Name</h2>
+                    <h2 id="view-name">Member Name</h2>
                     <div class="dashboard-rank">Rank #<span id="view-rank">1</span></div>
                 </div>
             </div>
@@ -199,13 +201,13 @@
     <div id="team-modal" class="modal">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
-            <h2 id="modal-title">Add New Team</h2>
+            <h2 id="modal-title">Add New Member</h2>
             <form id="team-form">
                 <input type="hidden" id="edit-index" value="-1">
                 
                 <div class="form-group">
-                    <label for="team-name">Team Name</label>
-                    <input type="text" id="team-name" required placeholder="e.g. Neural Nexus">
+                    <label for="team-name">Name</label>
+                    <input type="text" id="team-name" required placeholder="e.g. John Doe">
                 </div>
                 
                 <div class="form-group">
@@ -229,16 +231,16 @@
                 <div class="form-group">
                     <label>Select Icon</label>
                     <div class="icon-selection">
-                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-brain" checked><i class="fa-solid fa-brain"></i></label>
-                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-database"><i class="fa-solid fa-database"></i></label>
-                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-robot"><i class="fa-solid fa-robot"></i></label>
-                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-code-branch"><i class="fa-solid fa-code-branch"></i></label>
-                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-microchip"><i class="fa-solid fa-microchip"></i></label>
-                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-graduation-cap"><i class="fa-solid fa-graduation-cap"></i></label>
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-user" checked><i class="fa-solid fa-user"></i></label>
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-user-ninja"><i class="fa-solid fa-user-ninja"></i></label>
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-user-astronaut"><i class="fa-solid fa-user-astronaut"></i></label>
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-user-graduate"><i class="fa-solid fa-user-graduate"></i></label>
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-user-secret"><i class="fa-solid fa-user-secret"></i></label>
+                        <label class="icon-option"><input type="radio" name="team-icon" value="fa-user-tie"><i class="fa-solid fa-user-tie"></i></label>
                     </div>
                 </div>
 
-                <button type="submit" class="btn primary full-width">Save Team</button>
+                <button type="submit" class="btn primary full-width">Save Member</button>
             </form>
         </div>
     </div>
@@ -255,7 +257,7 @@
                     <div id="total-points-display" class="big-number">0</div>
                 </div>
                 <div class="stat-box">
-                    <h3>Top Performing Team</h3>
+                    <h3>Top Performing Member</h3>
                     <div id="top-team-display" class="highlight-text">-</div>
                 </div>
                 <div class="stat-box">
@@ -266,7 +268,7 @@
 
             <div class="charts-grid" style="margin-bottom: 2.5rem;">
                 <div class="chart-card">
-                    <h3>🏆 Top Squads</h3>
+                    <h3>🏆 Top Members</h3>
                     <canvas id="topSquadsChart"></canvas>
                 </div>
                 <div class="chart-card">
@@ -296,6 +298,87 @@
                     <!-- List injected via JS -->
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Quests Modal -->
+    <div id="quests-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <span class="close-quests">&times;</span>
+            <h2>📜 Available Quests</h2>
+            <div class="quest-tabs" style="display:flex; gap:1rem; margin-bottom:1.5rem; border-bottom:1px solid var(--border-color);">
+                <button class="quest-tab active" onclick="filterQuests('all')">All</button>
+                <button class="quest-tab" onclick="filterQuests('Training')">Training</button>
+                <button class="quest-tab" onclick="filterQuests('Assets')">Assets</button>
+                <button class="quest-tab" onclick="filterQuests('Mentorship')">Mentorship</button>
+            </div>
+            <div id="quests-list" class="quests-grid">
+                <!-- Quests injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Quests Modal (Admin) -->
+    <div id="manage-quests-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <span class="close-manage-quests">&times;</span>
+            <h2>Manage Quests</h2>
+            
+            <form id="manage-quest-form" style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border-color);">
+                <input type="hidden" id="manage-quest-id" value="-1">
+                <div style="display: grid; grid-template-columns: 1fr 1.5fr 0.5fr 0.8fr 0.5fr auto; gap: 1rem; align-items: end;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Title</label>
+                        <input type="text" id="manage-quest-title" required placeholder="Quest Title">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Description</label>
+                        <input type="text" id="manage-quest-desc" required placeholder="Description">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Points</label>
+                        <input type="number" id="manage-quest-points" required placeholder="Pts">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Category</label>
+                        <select id="manage-quest-category" required>
+                            <option value="Training">Training</option>
+                            <option value="Assets">Assets</option>
+                            <option value="Mentorship">Mentorship</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Icon</label>
+                        <input type="text" id="manage-quest-icon" placeholder="fa-scroll" value="fa-scroll">
+                    </div>
+                    <button type="submit" class="btn primary" style="margin-top: 0; height: 50px;">Save</button>
+                </div>
+            </form>
+
+            <div id="manage-quests-list" class="quests-grid">
+                <!-- Admin Quests injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Claim Quest Modal (Team Selection) -->
+    <div id="claim-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <span class="close-claim">&times;</span>
+            <h2>Claim Quest</h2>
+            <p id="claim-quest-title" style="color:var(--accent); margin-bottom:1rem; font-weight:bold;"></p>
+            <form id="claim-form">
+                <input type="hidden" id="claim-quest-points">
+                <input type="hidden" id="claim-quest-name">
+                <div class="form-group">
+                    <label>Select Team Member to Award</label>
+                    <select id="claim-team-select" required>
+                        <option value="" disabled selected>Select member...</option>
+                        <!-- Teams populated via JS -->
+                    </select>
+                </div>
+                <button type="submit" class="btn primary full-width">Claim Reward</button>
+            </form>
         </div>
     </div>
 

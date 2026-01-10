@@ -1413,4 +1413,116 @@ input:focus, select:focus {
     
     /* Auth */
     .auth-box { padding: 1.5rem; width: 95%; }
+    
+    /* Quests Grid */
+    .quests-grid { grid-template-columns: 1fr; }
+}
+
+/* Quests Styles */
+.quests-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    padding-bottom: 2rem;
+}
+
+.quest-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: all 0.3s;
+    overflow: hidden;
+}
+
+.quest-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(0, 243, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.quest-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 4px; height: 100%;
+    background: var(--text-secondary);
+}
+
+.quest-card[data-category="Training"]::before { background: var(--accent); }
+.quest-card[data-category="Assets"]::before { background: var(--secondary-accent); }
+.quest-card[data-category="Mentorship"]::before { background: var(--success); }
+
+.quest-icon {
+    width: 50px;
+    height: 50px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.quest-card[data-category="Training"] .quest-icon { color: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px rgba(0,243,255,0.2); }
+.quest-card[data-category="Assets"] .quest-icon { color: var(--secondary-accent); border-color: var(--secondary-accent); box-shadow: 0 0 10px rgba(188,19,254,0.2); }
+.quest-card[data-category="Mentorship"] .quest-icon { color: var(--success); border-color: var(--success); box-shadow: 0 0 10px rgba(57,255,20,0.2); }
+
+.quest-title {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.quest-desc {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+    flex: 1;
+    line-height: 1.4;
+}
+
+.quest-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding-top: 1rem;
+}
+
+.quest-points {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--gold);
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.4);
+}
+
+.quest-tab {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s;
+}
+
+.quest-tab:hover { color: var(--text-primary); }
+.quest-tab.active { 
+    color: var(--accent); 
+    border-bottom-color: var(--accent);
+    text-shadow: 0 0 10px var(--accent-glow);
 }
