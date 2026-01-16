@@ -83,7 +83,8 @@ if(formLogin) {
             
             if (res.ok) {
                 sessionStorage.setItem('currentUser', email);
-                window.location.href = '/';
+                // Initialize data properly on login without reload if possible, but href=/ reloads anyway
+                window.location.href = '/'; 
             } else {
                 alert(data.error || "Login failed");
             }
@@ -233,9 +234,10 @@ async function fetchReasons() {
         const response = await fetch(`${API_BASE_URL}/api/reasons`);
         if (!response.ok) throw new Error('Failed to fetch reasons');
         reasonMappings = await response.json();
-        // Don't populate here, wait for team context
+        return true;
     } catch (error) {
         console.error("Error fetching reasons:", error);
+        return false;
     }
 }
 
@@ -245,8 +247,10 @@ async function fetchQuests() {
         if (!response.ok) throw new Error('Failed to fetch quests');
         quests = await response.json();
         renderQuests(quests);
+        return true;
     } catch (error) {
         console.error("Error fetching quests:", error);
+        return false;
     }
 }
 
@@ -267,23 +271,23 @@ function populateReasonDropdown(team = null) {
     }
 
     const currentScore = team ? team.score : 0;
-    const targetCap = getTargetCap(currentScore);
+    // const targetCap = getTargetCap(currentScore); // Filter removed
     const historyReasons = team ? (team.history || []).map(h => h.reason) : [];
 
     const filteredReasons = reasonMappings.filter(r => {
-        // Cap Type Match
-        const rCap = r.cap_type || 'Orange';
-        if (rCap !== targetCap) return false;
+        // Cap Type Match - REMOVED
+        // const rCap = r.cap_type || 'Orange';
+        // if (rCap !== targetCap) return false;
         
-        // Unique Check
-        if (historyReasons.includes(r.reason)) return false;
+        // Unique Check - Keep this if you want reasons to be one-time only per user
+        // if (historyReasons.includes(r.reason)) return false;
         
         return true;
     });
 
     if (filteredReasons.length === 0) {
         const option = document.createElement('option');
-        option.textContent = `No available ${targetCap} tasks`;
+        option.textContent = `No available reasons`;
         option.disabled = true;
         reasonSelect.appendChild(option);
     }
@@ -291,9 +295,18 @@ function populateReasonDropdown(team = null) {
     filteredReasons.forEach(mapping => {
         const option = document.createElement('option');
         option.value = mapping.reason; 
-        option.textContent = `${mapping.reason} (+${mapping.points})`;
+        // Add visual indicator for cap type
+        const capIndicator = mapping.cap_type ? `[${mapping.cap_type}] ` : '';
+        option.textContent = `${capIndicator}${mapping.reason} (+${mapping.points})`;
         option.title = mapping.description;
         option.dataset.points = mapping.points;
+        
+        // Optional: Style the option if supported by browser/OS (limited support for select options)
+        if (mapping.cap_type === 'Orange') option.style.color = '#f97316';
+        if (mapping.cap_type === 'Green') option.style.color = '#39ff14';
+        if (mapping.cap_type === 'Purple') option.style.color = '#bc13fe';
+        if (mapping.cap_type === 'Black') option.style.color = '#ffffff'; // or light grey for visibility on white bg if not dark mode specific
+        
         reasonSelect.appendChild(option);
     });
 }
@@ -375,12 +388,62 @@ const viewLevel = document.getElementById('view-level');
 const viewProgressText = document.getElementById('view-progress-text');
 const viewProgressBar = document.getElementById('view-progress-bar');
 
-function calculateLevel(score) {
-    if (score >= 12000) return { level: 4, name: "Black Cap", min: 12000, max: 20000 };
-    if (score >= 9000) return { level: 3, name: "Purple Cap", min: 9000, max: 12000 };
-    if (score >= 6000) return { level: 2, name: "Green Cap", min: 6000, max: 9000 };
-    if (score >= 3000) return { level: 1, name: "Orange Cap", min: 3000, max: 6000 };
-    return { level: 0, name: "No Cap", min: 0, max: 3000 };
+function calculateLevel(history) {
+    let orangePoints = 0;
+    let greenPoints = 0;
+    let purplePoints = 0;
+    let blackPoints = 0;
+
+    history.forEach(h => {
+        // Find reason mapping to determine cap type
+        const mapping = reasonMappings.find(r => r.reason === h.reason);
+        // Fallback: check quests (assuming title matches reason in history for quests)
+        const quest = quests.find(q => q.title === h.reason.replace("Quest Completed: ", ""));
+        
+        let capType = 'Orange'; // Default
+        if (mapping) {
+            capType = mapping.cap_type || 'Orange';
+        } else if (quest) {
+            capType = quest.cap_type || 'Orange';
+        } else {
+             // Try to infer from text or existing logic if needed, otherwise default Orange
+             // Or maybe we stored it? No, history is simple JSON.
+        }
+
+        if (capType === 'Orange') orangePoints += h.points;
+        if (capType === 'Green') greenPoints += h.points;
+        if (capType === 'Purple') purplePoints += h.points;
+        if (capType === 'Black') blackPoints += h.points;
+    });
+
+    // Progression Logic: Must fill previous bucket to start next
+    // Threshold per level is 3000 points of that specific color
+    
+    // Level 0 -> 1 (Orange Cap)
+    if (orangePoints < 3000) {
+        return { level: 0, name: "No Cap", min: 0, max: 3000, current: orangePoints, nextColor: 'Orange' };
+    }
+    
+    // Level 1 -> 2 (Green Cap)
+    // Requirement: 3000 Orange (Met) + 3000 Green
+    if (greenPoints < 3000) {
+        return { level: 1, name: "Orange Cap", min: 0, max: 3000, current: greenPoints, nextColor: 'Green' };
+    }
+
+    // Level 2 -> 3 (Purple Cap)
+    // Requirement: 3000 Orange + 3000 Green (Met) + 3000 Purple
+    if (purplePoints < 3000) {
+        return { level: 2, name: "Green Cap", min: 0, max: 3000, current: purplePoints, nextColor: 'Purple' };
+    }
+
+    // Level 3 -> 4 (Black Cap)
+    // Requirement: 3000 Orange + 3000 Green + 3000 Purple (Met) + 3000 Black
+    if (blackPoints < 3000) {
+        return { level: 3, name: "Purple Cap", min: 0, max: 3000, current: blackPoints, nextColor: 'Black' };
+    }
+
+    // Level 4 (Black Cap Master)
+    return { level: 4, name: "Black Cap", min: 0, max: 20000, current: blackPoints, nextColor: 'Master' };
 }
 
 function getCapColor(levelName) {
@@ -400,13 +463,22 @@ function getCapSvg(color) {
 
 // Render Leaderboard
 function renderLeaderboard() {
-    // Sort teams by score descending, then by earliest achievement date
+    // Sort teams by Cap Level descending, then by Total Score, then by Date
     teams.sort((a, b) => {
+        const levelA = calculateLevel(a.history || []).level;
+        const levelB = calculateLevel(b.history || []).level;
+
+        // 1. Primary: Higher Cap Level wins
+        if (levelB !== levelA) {
+            return levelB - levelA;
+        }
+
+        // 2. Secondary: Higher Total Score wins
         if (b.score !== a.score) {
             return b.score - a.score;
         }
         
-        // Tie-breaker: Earlier last update wins
+        // 3. Tie-breaker: Earlier last update wins
         const getLastUpdate = (team) => {
             if (team.history && team.history.length > 0) {
                 // Return timestamp of last history item
@@ -429,7 +501,7 @@ function renderLeaderboard() {
             if (teams[idx]) {
                 const team = teams[idx];
                 const rank = idx + 1;
-                const levelData = calculateLevel(team.score);
+                const levelData = calculateLevel(team.history || []);
                 let capHtml = '';
                 if (levelData.level > 0) {
                     const capColor = getCapColor(levelData.name);
@@ -459,15 +531,19 @@ function renderLeaderboard() {
         const row = document.createElement('div');
         row.className = `leaderboard-row rank-${rank}`;
 
-        const levelData = calculateLevel(team.score);
+        const levelData = calculateLevel(team.history || []);
         let capsHtml = '';
-        if (team.score < 3000) {
+        
+        // Show current cap
+        if (levelData.level === 0) {
             capsHtml = '<span style="color:#94a3b8; font-size: 0.9rem; font-style: italic;">No Cap</span>';
         } else {
-            if (team.score >= 3000) capsHtml += getCapSvg("#f97316");
-            if (team.score >= 6000) capsHtml += getCapSvg("#39ff14");
-            if (team.score >= 9000) capsHtml += getCapSvg("#bc13fe");
-            if (team.score >= 12000) capsHtml += getCapSvg("#000000");
+            // Display accumulation of caps or just the highest? Previous logic showed all achieved caps.
+            // New logic: Show achieved caps based on level.
+            if (levelData.level >= 1) capsHtml += getCapSvg("#f97316");
+            if (levelData.level >= 2) capsHtml += getCapSvg("#39ff14");
+            if (levelData.level >= 3) capsHtml += getCapSvg("#bc13fe");
+            if (levelData.level >= 4) capsHtml += getCapSvg("#000000");
         }
 
         row.innerHTML = `
@@ -819,7 +895,7 @@ function renderReports() {
     const ctxLevels = document.getElementById('levelsChart').getContext('2d');
     const levelCounts = { 'No Cap': 0, 'Orange Cap': 0, 'Green Cap': 0, 'Purple Cap': 0, 'Black Cap': 0 };
     teams.forEach(t => {
-        const lvl = calculateLevel(t.score).name;
+        const lvl = calculateLevel(t.history || []).name;
         levelCounts[lvl] = (levelCounts[lvl] || 0) + 1;
     });
 
@@ -828,7 +904,7 @@ function renderReports() {
         data: {
             labels: Object.keys(levelCounts),
             datasets: [{
-                label: 'Teams',
+                label: 'Team Members',
                 data: Object.values(levelCounts),
                 backgroundColor: ['#64748b', '#f97316', '#39ff14', '#bc13fe', '#ffffff'],
                 borderRadius: 4
@@ -943,9 +1019,13 @@ function renderQuests(data) {
         div.className = 'quest-card';
         div.dataset.category = q.category;
         
+        const capColors = { 'Orange': '#f97316', 'Green': '#39ff14', 'Purple': '#bc13fe', 'Black': '#000000' };
+        const color = capColors[q.cap_type || 'Orange'];
+        const badgeStyle = `background:${color}; color:${q.cap_type==='Black'?'white':'black'}; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-right:5px; vertical-align: middle;`;
+
         div.innerHTML = `
             <div class="quest-icon"><i class="fa-solid ${q.icon || 'fa-scroll'}"></i></div>
-            <div class="quest-title">${q.title}</div>
+            <div class="quest-title"><span style="${badgeStyle}">${q.cap_type || 'Orange'}</span> ${q.title}</div>
             <div class="quest-desc">${q.description}</div>
             <div class="quest-footer">
                 <div class="quest-points">+${q.points} pts</div>
@@ -963,9 +1043,13 @@ function renderManageQuestsList() {
         div.className = 'quest-card';
         div.dataset.category = q.category;
         
+        const capColors = { 'Orange': '#f97316', 'Green': '#39ff14', 'Purple': '#bc13fe', 'Black': '#000000' };
+        const color = capColors[q.cap_type || 'Orange'];
+        const badgeStyle = `background:${color}; color:${q.cap_type==='Black'?'white':'black'}; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-right:5px; vertical-align: middle;`;
+
         div.innerHTML = `
             <div class="quest-icon"><i class="fa-solid ${q.icon || 'fa-scroll'}"></i></div>
-            <div class="quest-title">${q.title}</div>
+            <div class="quest-title"><span style="${badgeStyle}">${q.cap_type || 'Orange'}</span> ${q.title}</div>
             <div class="quest-desc">${q.description}</div>
             <div class="quest-footer" style="flex-direction: column; gap: 0.5rem; align-items: stretch;">
                 <div style="display: flex; justify-content: space-between;">
@@ -991,6 +1075,8 @@ window.editQuest = function(id) {
         document.getElementById('manage-quest-points').value = quest.points;
         document.getElementById('manage-quest-category').value = quest.category;
         document.getElementById('manage-quest-icon').value = quest.icon;
+        const capSelect = document.getElementById('manage-quest-cap');
+        if(capSelect) capSelect.value = quest.cap_type || 'Orange';
     }
 };
 
@@ -1018,6 +1104,7 @@ async function handleQuestSubmit(e) {
     const points = parseInt(document.getElementById('manage-quest-points').value);
     const category = document.getElementById('manage-quest-category').value;
     const icon = document.getElementById('manage-quest-icon').value;
+    const cap_type = document.getElementById('manage-quest-cap').value;
 
     const method = id > -1 ? 'PUT' : 'POST';
     const url = id > -1 ? `${API_BASE_URL}/api/quests/${id}` : `${API_BASE_URL}/api/quests`;
@@ -1029,7 +1116,7 @@ async function handleQuestSubmit(e) {
                 'Content-Type': 'application/json',
                 'x-user-email': currentUser
             },
-            body: JSON.stringify({ title, description, points, category, icon })
+            body: JSON.stringify({ title, description, points, category, icon, cap_type })
         });
 
         if (!res.ok) {
@@ -1337,7 +1424,7 @@ window.editTeam = function(index) {
 window.viewTeam = function(index) {
     const team = teams[index];
     const rank = index + 1;
-    const levelData = calculateLevel(team.score);
+    const levelData = calculateLevel(team.history || []);
     
     // Populate Modal
     viewIcon.innerHTML = `<i class="fa-solid ${team.icon}"></i>`;
@@ -1364,13 +1451,19 @@ window.viewTeam = function(index) {
     // Progress Calculation
     let progress = 0;
     if (levelData.level < 4) {
-        const range = levelData.max - levelData.min;
-        const current = team.score - levelData.min;
+        // levelData now returns { min: 0, max: 3000, current: <points_in_next_color> }
+        const range = levelData.max;
+        const current = levelData.current;
         progress = Math.min(100, Math.max(0, (current / range) * 100));
-        viewProgressText.textContent = `${team.score.toLocaleString()} / ${levelData.max.toLocaleString()} pts`;
+        viewProgressText.textContent = `${current.toLocaleString()} / ${range.toLocaleString()} ${levelData.nextColor} pts`;
+        
+        // Color the progress bar based on next target
+        const colorMap = { 'Orange': '#f97316', 'Green': '#39ff14', 'Purple': '#bc13fe', 'Black': '#000000' };
+        viewProgressBar.style.background = colorMap[levelData.nextColor] || 'var(--accent)';
     } else {
         progress = 100;
         viewProgressText.textContent = "Max Level Reached!";
+        viewProgressBar.style.background = '#ffffff';
     }
     viewProgressBar.style.width = `${progress}%`;
 
@@ -1594,12 +1687,15 @@ function launchComets() {
 }
 
 // Initial Render
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     initAuth(); // Check auth first
     
     if (sessionStorage.getItem('currentUser')) {
+        // Fetch dependencies first
+        await Promise.all([fetchReasons(), fetchQuests()]);
+        // Then fetch teams to ensure level calculation has data
         fetchTeams();
-        fetchReasons();
+        
         // Celebration
         launchFireworks();
         launchComets();

@@ -74,24 +74,32 @@ async function initDb() {
             description TEXT,
             points INTEGER,
             category TEXT,
-            icon TEXT
+            icon TEXT,
+            cap_type TEXT DEFAULT 'Orange'
         )`);
+        
+        // Migration: Add cap_type to quests if missing
+        const questCols = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='quests' AND column_name='cap_type'`);
+        if (questCols.rows.length === 0) {
+             await pool.query("ALTER TABLE quests ADD COLUMN cap_type TEXT DEFAULT 'Orange'");
+             console.log("Added cap_type column to quests");
+        }
 
         // Seed Quests if empty
         const questCount = await pool.query("SELECT count(*) FROM quests");
         if (parseInt(questCount.rows[0].count) === 0) {
             const seedQuests = [
-                { title: 'Cloud Certification', description: 'Complete a recognized cloud certification (AWS/Azure/GCP)', points: 500, category: 'Training', icon: 'fa-cloud' },
-                { title: 'Tech Book Review', description: 'Read a technical book and share key takeaways', points: 150, category: 'Training', icon: 'fa-book' },
-                { title: 'Reusable Component', description: 'Develop and publish a reusable code component or library', points: 300, category: 'Assets', icon: 'fa-cubes' },
-                { title: 'Tech Blog Post', description: 'Write and publish a technical blog post', points: 200, category: 'Assets', icon: 'fa-pen-nib' },
-                { title: 'Junior Mentorship', description: 'Mentor a junior developer for a sprint', points: 400, category: 'Mentorship', icon: 'fa-user-group' },
-                { title: 'Knowledge Session', description: 'Host a knowledge sharing session (KT) for the team', points: 250, category: 'Mentorship', icon: 'fa-chalkboard-user' }
+                { title: 'Cloud Certification', description: 'Complete a recognized cloud certification (AWS/Azure/GCP)', points: 500, category: 'Training', icon: 'fa-cloud', cap_type: 'Green' },
+                { title: 'Tech Book Review', description: 'Read a technical book and share key takeaways', points: 150, category: 'Training', icon: 'fa-book', cap_type: 'Orange' },
+                { title: 'Reusable Component', description: 'Develop and publish a reusable code component or library', points: 300, category: 'Assets', icon: 'fa-cubes', cap_type: 'Purple' },
+                { title: 'Tech Blog Post', description: 'Write and publish a technical blog post', points: 200, category: 'Assets', icon: 'fa-pen-nib', cap_type: 'Orange' },
+                { title: 'Junior Mentorship', description: 'Mentor a junior developer for a sprint', points: 400, category: 'Mentorship', icon: 'fa-user-group', cap_type: 'Green' },
+                { title: 'Knowledge Session', description: 'Host a knowledge sharing session (KT) for the team', points: 250, category: 'Mentorship', icon: 'fa-chalkboard-user', cap_type: 'Orange' }
             ];
             
             for (const q of seedQuests) {
-                await pool.query("INSERT INTO quests (title, description, points, category, icon) VALUES ($1, $2, $3, $4, $5)", 
-                    [q.title, q.description, q.points, q.category, q.icon]);
+                await pool.query("INSERT INTO quests (title, description, points, category, icon, cap_type) VALUES ($1, $2, $3, $4, $5, $6)", 
+                    [q.title, q.description, q.points, q.category, q.icon, q.cap_type]);
             }
             console.log("Seeded initial quests");
         }
@@ -177,24 +185,24 @@ app.get('/api/quests', async (req, res) => {
 });
 
 app.post('/api/quests', checkAdmin, async (req, res) => {
-    const { title, description, points, category, icon } = req.body;
+    const { title, description, points, category, icon, cap_type } = req.body;
     try {
         const result = await pool.query(
-            "INSERT INTO quests (title, description, points, category, icon) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-            [title, description, points, category, icon]
+            "INSERT INTO quests (title, description, points, category, icon, cap_type) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+            [title, description, points, category, icon, cap_type || 'Orange']
         );
-        res.json({ id: result.rows[0].id, title, description, points, category, icon });
+        res.json({ id: result.rows[0].id, title, description, points, category, icon, cap_type: cap_type || 'Orange' });
     } catch (err) {
         res.status(400).json({ error: err.message });
     }
 });
 
 app.put('/api/quests/:id', checkAdmin, async (req, res) => {
-    const { title, description, points, category, icon } = req.body;
+    const { title, description, points, category, icon, cap_type } = req.body;
     try {
         const result = await pool.query(
-            "UPDATE quests SET title = $1, description = $2, points = $3, category = $4, icon = $5 WHERE id = $6",
-            [title, description, points, category, icon, req.params.id]
+            "UPDATE quests SET title = $1, description = $2, points = $3, category = $4, icon = $5, cap_type = $6 WHERE id = $7",
+            [title, description, points, category, icon, cap_type || 'Orange', req.params.id]
         );
         res.json({ message: "Updated", changes: result.rowCount });
     } catch (err) {
