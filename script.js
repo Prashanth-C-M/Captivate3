@@ -14,6 +14,10 @@ window.showAuth = function(viewId) {
     }
 };
 
+function isAdmin() {
+    return currentUser && currentUser.toLowerCase() === 'captivate_admin@brillio.com';
+}
+
 function initAuth() {
     if (currentUser) {
         document.getElementById('auth-overlay').classList.add('hidden');
@@ -21,10 +25,11 @@ function initAuth() {
         
         const manageBtn = document.getElementById('manage-reasons-btn');
         const manageQuestsBtn = document.getElementById('manage-quests-btn');
+        const inboxBtn = document.getElementById('inbox-btn');
         const adminActions = document.getElementById('admin-actions');
         const adminButtons = adminActions ? adminActions.querySelectorAll('button') : [];
 
-        if (currentUser.toLowerCase() === 'captivate_admin@brillio.com') {
+        if (isAdmin()) {
             if (manageBtn) {
                 manageBtn.disabled = false;
                 manageBtn.title = "Manage Reasons";
@@ -34,6 +39,10 @@ function initAuth() {
                 manageQuestsBtn.disabled = false;
                 manageQuestsBtn.title = "Manage Quests";
                 manageQuestsBtn.classList.remove('hidden');
+            }
+            if (inboxBtn) {
+                inboxBtn.disabled = false;
+                inboxBtn.classList.remove('hidden');
             }
             // Enable Admin Actions
             adminButtons.forEach(btn => {
@@ -50,6 +59,10 @@ function initAuth() {
             if (manageQuestsBtn) {
                 manageQuestsBtn.disabled = true;
                 manageQuestsBtn.classList.add('hidden');
+            }
+            if (inboxBtn) {
+                inboxBtn.disabled = true;
+                inboxBtn.classList.add('hidden');
             }
             // Disable Admin Actions
             adminButtons.forEach(btn => {
@@ -313,6 +326,12 @@ const teamForm = document.getElementById('team-form');
 const modalTitle = document.getElementById('modal-title');
 const editIndexInput = document.getElementById('edit-index');
 const podiumDisplay = document.getElementById('podium-display');
+
+// Inbox Elements
+const inboxModal = document.getElementById('inbox-modal');
+const inboxBtn = document.getElementById('inbox-btn');
+const closeInboxBtn = document.querySelector('.close-inbox');
+const inboxList = document.getElementById('inbox-list');
 
 // Reasons Modal Elements
 const reasonsModal = document.getElementById('reasons-modal');
@@ -630,6 +649,116 @@ viewReportBtn.addEventListener('click', renderReports);
 if(manageReasonsBtn) manageReasonsBtn.addEventListener('click', openReasonsManager);
 if(closeReasonsBtn) closeReasonsBtn.addEventListener('click', closeReasons);
 if(reasonForm) reasonForm.addEventListener('submit', handleReasonSubmit);
+
+// Inbox Logic
+if (inboxBtn) inboxBtn.addEventListener('click', openInbox);
+if (closeInboxBtn) closeInboxBtn.addEventListener('click', closeInbox);
+
+async function openInbox() {
+    inboxModal.style.display = 'flex';
+    await fetchRequests();
+}
+
+function closeInbox() {
+    inboxModal.style.display = 'none';
+}
+
+async function fetchRequests() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/requests`, {
+             headers: { 'x-user-email': currentUser }
+        });
+        if (!res.ok) throw new Error("Failed to fetch requests");
+        const requests = await res.json();
+        renderInbox(requests);
+    } catch (e) {
+        console.error(e);
+        inboxList.innerHTML = '<p style="text-align:center; padding:1rem;">Error loading requests.</p>';
+    }
+}
+
+function renderInbox(requests) {
+    inboxList.innerHTML = '';
+    if (requests.length === 0) {
+        inboxList.innerHTML = '<p style="text-align:center; padding:1rem; color: var(--text-secondary);">No pending requests.</p>';
+        return;
+    }
+
+    requests.forEach(req => {
+        const div = document.createElement('div');
+        div.className = 'rule-item'; // Reuse existing style class
+        div.style.flexDirection = 'column';
+        div.style.alignItems = 'flex-start';
+        
+        div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:0.5rem;">
+                <div style="font-weight:bold; color:var(--accent);">${req.team_member_name}</div>
+                <div style="color:var(--text-secondary); font-size:0.8rem;">${new Date(req.created_at).toLocaleDateString()}</div>
+            </div>
+            <div style="margin-bottom:0.5rem;">
+                <span style="font-weight:bold; color:#39ff14;">+${req.points} pts</span> 
+                <span style="color:var(--text-secondary);"> for </span>
+                <span>${req.reason}</span>
+            </div>
+            <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.8rem;">
+                Requested by: ${req.requested_by}
+            </div>
+            <div style="display:flex; gap:1rem; width:100%;">
+                <button class="btn primary" style="flex:1;" onclick="approveRequest(${req.id})">Approve</button>
+                <button class="btn danger" style="flex:1;" onclick="rejectRequest(${req.id})">Reject</button>
+            </div>
+        `;
+        inboxList.appendChild(div);
+    });
+}
+
+window.approveRequest = async function(id) {
+    if (!confirm("Approve this request?")) return;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/requests/${id}/approve`, {
+            method: 'POST',
+            headers: { 'x-user-email': currentUser }
+        });
+        if (res.ok) {
+            fetchRequests(); // Refresh inbox
+            fetchTeams(); // Refresh leaderboard
+        } else {
+            alert("Failed to approve.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error approving request.");
+    }
+};
+
+window.rejectRequest = async function(id) {
+    const reason = prompt("Enter rejection reason:");
+    if (reason === null) return; // Cancelled
+    if (!reason.trim()) {
+        alert("Rejection reason is required.");
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/requests/${id}/reject`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-email': currentUser 
+            },
+            body: JSON.stringify({ rejectionReason: reason })
+        });
+        if (res.ok) {
+            fetchRequests(); // Refresh inbox
+            fetchTeams(); // Refresh leaderboard to show rejection in history
+        } else {
+            alert("Failed to reject.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error rejecting request.");
+    }
+};
 
 function openReasonsManager() {
     reasonsModal.style.display = 'flex';
@@ -1146,6 +1275,33 @@ async function handleClaimSubmit(e) {
     const team = teams.find(t => t.id == teamId);
     if (!team) return;
 
+    if (!isAdmin()) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/requests`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    team_member_id: team.id,
+                    points: points,
+                    reason: `Quest Completed: ${questTitle}`,
+                    requested_by: currentUser
+                })
+            });
+
+            if (res.ok) {
+                alert("Quest claim submitted for approval.");
+                closeClaim();
+                closeQuests();
+            } else {
+                alert("Failed to submit claim request.");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Server error submitting request.");
+        }
+        return;
+    }
+
     // Update team score
     const newScore = team.score + points;
     const newHistory = team.history || [];
@@ -1303,6 +1459,7 @@ window.addEventListener('click', (e) => {
     if (e.target === claimModal) closeClaim();
     if (e.target === manageQuestsModal) closeManageQuests();
     if (e.target === changePasswordModal) changePasswordModal.style.display = 'none';
+    if (e.target === inboxModal) closeInbox();
 });
 
 // Form Submission (Add / Edit)
@@ -1323,6 +1480,30 @@ teamForm.addEventListener('submit', async (e) => {
         if (index > -1) {
             // Update Existing Team
             const team = teams[index];
+            
+            if (!isAdmin() && pointsToAdd !== 0) {
+                // Request Workflow for Non-Admins
+                if (!reason) {
+                    alert("Please provide a reason for requesting points.");
+                    return;
+                }
+                
+                await fetch(`${API_BASE_URL}/api/requests`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        team_member_id: team.id,
+                        points: pointsToAdd,
+                        reason: reason,
+                        requested_by: currentUser
+                    })
+                });
+                alert("Point request submitted for approval.");
+                closeModal();
+                return;
+            }
+
+            // Direct Update for Admins
             let newScore = team.score;
             let newHistory = team.history || [];
 
@@ -1347,23 +1528,46 @@ teamForm.addEventListener('submit', async (e) => {
         } else {
             // Add New Member
             let initialScore = isNaN(pointsToAdd) ? 0 : pointsToAdd;
+            
+            // If user is not admin, create with 0 points first, then request points
+            let createScore = isAdmin() ? initialScore : 0;
             let history = [];
-            if (initialScore !== 0) {
-                 history.push({ points: initialScore, reason: reason || "Initial Score", date: new Date().toISOString() });
+            
+            if (createScore !== 0) {
+                 history.push({ points: createScore, reason: reason || "Initial Score", date: new Date().toISOString() });
             }
 
             const newTeamData = {
                 name,
                 icon,
-                score: initialScore,
+                score: createScore,
                 history: history
             };
 
-            await fetch(`${API_BASE_URL}/api/team-members`, {
+            const res = await fetch(`${API_BASE_URL}/api/team-members`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newTeamData)
             });
+            
+            const newMember = await res.json();
+            
+            // If non-admin had points, submit request now
+            if (!isAdmin() && initialScore !== 0) {
+                 await fetch(`${API_BASE_URL}/api/requests`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        team_member_id: newMember.id,
+                        points: initialScore,
+                        reason: reason || "Initial Score",
+                        requested_by: currentUser
+                    })
+                });
+                alert("Member added. Initial points request submitted for approval.");
+            } else {
+                alert("Member added successfully.");
+            }
         }
         
         await fetchTeams(); // Refresh data from server
@@ -1452,12 +1656,33 @@ window.viewTeam = function(index) {
             sortedHistory.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'history-item';
-                const sign = item.points >= 0 ? '+' : '';
-                const pClass = item.points >= 0 ? 'positive' : 'negative';
+                
+                let pointsHtml = '';
+                let extraInfo = '';
+                let statusHtml = '';
+
+                if (item.status === 'Rejected') {
+                    pointsHtml = `<div class="history-points" style="color:#ff4d4d; font-size:0.7rem; width:40px; text-align:center;">REJECTED</div>`;
+                    if (item.rejection_reason) {
+                        extraInfo = `<div style="font-size:0.75rem; color:#ff4d4d; margin-top:0.2rem; font-style:italic;">Reason: ${item.rejection_reason}</div>`;
+                    }
+                } else {
+                    const sign = item.points >= 0 ? '+' : '';
+                    const pClass = item.points >= 0 ? 'positive' : 'negative';
+                    pointsHtml = `<div class="history-points ${pClass}">${sign}${item.points}</div>`;
+                    
+                    if (item.status === 'Approved') {
+                        statusHtml = '<span style="font-size:0.6rem; background:#39ff14; color:black; padding:1px 4px; border-radius:3px; margin-left:5px; vertical-align:middle;">Approved</span>';
+                    }
+                }
+
                 const dateDisplay = item.date ? item.date.split('T')[0] : 'Today';
                 div.innerHTML = `
-                    <div class="history-points ${pClass}">${sign}${item.points}</div>
-                    <div class="history-reason" title="${item.reason}">${item.reason}</div>
+                    ${pointsHtml}
+                    <div class="history-reason" title="${item.reason}">
+                        ${item.reason} ${statusHtml}
+                        ${extraInfo}
+                    </div>
                     <div class="history-date">${dateDisplay}</div>
                 `;
                 viewHistory.appendChild(div);

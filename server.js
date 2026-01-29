@@ -118,6 +118,25 @@ async function initDb() {
              console.log("Added cap_type column to reason_mappings");
         }
 
+        // Create Point Requests Table
+        await pool.query(`CREATE TABLE IF NOT EXISTS point_requests (
+            id SERIAL PRIMARY KEY,
+            team_member_id INTEGER,
+            points INTEGER,
+            reason TEXT,
+            requested_by TEXT,
+            status TEXT DEFAULT 'Pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            rejection_reason TEXT
+        )`);
+
+        // Migration: Add rejection_reason to point_requests if missing
+        const prCols = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='point_requests' AND column_name='rejection_reason'`);
+        if (prCols.rows.length === 0) {
+             await pool.query("ALTER TABLE point_requests ADD COLUMN rejection_reason TEXT");
+             console.log("Added rejection_reason column to point_requests");
+        }
+
     } catch (err) {
         console.error("Error initializing database:", err);
     }
@@ -257,6 +276,137 @@ app.delete('/api/reasons/:id', async (req, res) => {
         res.json({ message: "Deleted", changes: result.rowCount });
     } catch (err) {
         res.status(400).json({ error: err.message });
+    }
+});
+
+// API Routes - Point Requests
+app.get('/api/requests', checkAdmin, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT pr.*, tm.name as team_member_name 
+            FROM point_requests pr
+            LEFT JOIN team_members tm ON pr.team_member_id = tm.id
+            WHERE pr.status = 'Pending'
+            ORDER BY pr.created_at ASC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/requests', async (req, res) => {
+    const { team_member_id, points, reason, requested_by } = req.body;
+    try {
+        await pool.query(
+            "INSERT INTO point_requests (team_member_id, points, reason, requested_by) VALUES ($1, $2, $3, $4)",
+            [team_member_id, points, reason, requested_by]
+        );
+        res.json({ message: "Request submitted for approval." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/requests/:id/approve', checkAdmin, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // Get Request
+        const reqResult = await client.query("SELECT * FROM point_requests WHERE id = $1", [req.params.id]);
+        if (reqResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: "Request not found" });
+        }
+        const request = reqResult.rows[0];
+
+        if (request.status !== 'Pending') {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: "Request already processed" });
+        }
+
+        // Update Team Member
+        const teamResult = await client.query("SELECT * FROM team_members WHERE id = $1", [request.team_member_id]);
+        const team = teamResult.rows[0];
+        
+        let newScore = team.score + request.points;
+        let history = JSON.parse(team.history || "[]");
+        history.push({
+            points: request.points,
+            reason: request.reason,
+            date: new Date().toISOString(),
+            status: 'Approved'
+        });
+
+        await client.query(
+            "UPDATE team_members SET score = $1, history = $2 WHERE id = $3",
+            [newScore, JSON.stringify(history), team.id]
+        );
+
+        // Update Request Status
+        await client.query("UPDATE point_requests SET status = 'Approved' WHERE id = $1", [req.params.id]);
+
+        await client.query('COMMIT');
+        res.json({ message: "Request approved and points added." });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+app.post('/api/requests/:id/reject', checkAdmin, async (req, res) => {
+    const { rejectionReason } = req.body;
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+
+        // Get Request
+        const reqResult = await client.query("SELECT * FROM point_requests WHERE id = $1", [req.params.id]);
+        if (reqResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: "Request not found" });
+        }
+        const request = reqResult.rows[0];
+
+        if (request.status !== 'Pending') {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: "Request already processed" });
+        }
+
+        // Update point_requests
+        await client.query("UPDATE point_requests SET status = 'Rejected', rejection_reason = $1 WHERE id = $2", 
+            [rejectionReason, req.params.id]);
+            
+        // Update Team Member History (Append rejected request for visibility)
+        const teamResult = await client.query("SELECT * FROM team_members WHERE id = $1", [request.team_member_id]);
+        if (teamResult.rows.length > 0) {
+            const team = teamResult.rows[0];
+            let history = JSON.parse(team.history || "[]");
+            history.push({
+                points: 0, // No points added
+                reason: request.reason,
+                date: new Date().toISOString(),
+                status: 'Rejected',
+                rejection_reason: rejectionReason
+            });
+            
+            await client.query(
+                "UPDATE team_members SET history = $1 WHERE id = $2",
+                [JSON.stringify(history), team.id]
+            );
+        }
+
+        await client.query('COMMIT');
+        res.json({ message: "Request rejected." });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
