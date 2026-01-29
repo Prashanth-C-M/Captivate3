@@ -26,31 +26,7 @@
                     </div>
                     <button type="submit" class="btn primary full-width">Login</button>
                     <div class="auth-links">
-                        <a href="#" onclick="showAuth('register')">Register</a> | 
                         <a href="#" onclick="showAuth('forgot')">Forgot Password?</a>
-                    </div>
-                </form>
-            </div>
-
-            <div class="auth-box hidden" id="auth-register">
-                <h2>Register</h2>
-                <form id="form-register">
-                    <div class="form-group">
-                        <label>Email ID (Brillio Only)</label>
-                        <input type="text" id="reg-email" placeholder="name@brillio.com" required>
-                        <div id="reg-email-error" class="error-msg hidden"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <input type="password" id="reg-password" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Confirm Password</label>
-                        <input type="password" id="reg-confirm" required>
-                    </div>
-                    <button type="submit" class="btn primary full-width">Sign Up</button>
-                    <div class="auth-links">
-                        <a href="#" onclick="showAuth('login')">Back to Login</a>
                     </div>
                 </form>
             </div>
@@ -107,7 +83,13 @@
                 <button id="manage-reasons-btn" class="btn secondary"><i class="fa-solid fa-list-check"></i> Manage Reasons</button>
                 <button id="manage-quests-btn" class="btn secondary hidden" title="Manage Quests"><i class="fa-solid fa-dragon"></i> Manage Quests</button>
                 
-                <button id="logout-btn" class="btn danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                <div class="dropdown">
+                    <button class="btn secondary"><i class="fa-solid fa-user-gear"></i> Account</button>
+                    <div class="dropdown-content">
+                        <a href="#" id="change-password-btn"><i class="fa-solid fa-key"></i> Change Password</a>
+                        <a href="#" id="logout-btn" style="color: var(--danger-color);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -408,6 +390,29 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="change-password-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <span class="close-change-password">&times;</span>
+            <h2>Change Password</h2>
+            <form id="change-password-form">
+                <div class="form-group">
+                    <label>Old Password</label>
+                    <input type="password" id="old-password" required>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="new-password" required>
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="confirm-new-password" required>
+                </div>
+                <button type="submit" class="btn primary full-width">Update Password</button>
+            </form>
         </div>
     </div>
 

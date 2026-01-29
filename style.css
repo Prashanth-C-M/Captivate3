@@ -222,7 +222,46 @@ h1 {
 .header-actions {
     display: flex;
     justify-content: center;
-    gap: 1.5rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+    max-width: 100%;
+}
+
+/* Dropdown */
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: var(--card-bg);
+    min-width: 200px;
+    box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+    z-index: 100;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    top: 100%;
+    right: 0;
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+.dropdown-content a {
+    color: var(--text-primary);
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    font-family: var(--font-ui);
+    transition: background-color 0.2s;
+}
+
+.dropdown-content a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--accent);
 }
 
 /* Podium */
@@ -378,11 +417,16 @@ h1 {
     border: none;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     transition: all 0.3s;
     clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
     position: relative;
     overflow: hidden;
+    white-space: normal;
+    text-align: center;
+    min-height: 48px;
+    line-height: 1.2;
 }
 
 .btn::before {

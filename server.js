@@ -12,8 +12,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Admin Middleware
 const checkAdmin = (req, res, next) => {
     const userEmail = req.headers['x-user-email'] || req.query.email;
-    if (!userEmail || userEmail.toLowerCase() !== 'prashanth.c@brillio.com') {
-        return res.status(403).json({ error: "Unauthorized access. Only prashanth.c@brillio.com can perform this action." });
+    if (!userEmail || userEmail.toLowerCase() !== 'captivate_admin@brillio.com') {
+        return res.status(403).json({ error: "Unauthorized access. Only captivate_admin@brillio.com can perform this action." });
     }
     next();
 };
@@ -124,13 +124,20 @@ async function initDb() {
 }
 
 // API Routes - Auth
-app.post('/api/auth/register', async (req, res) => {
-    const { email, password } = req.body;
+app.post('/api/auth/change-password', async (req, res) => {
+    const { email, oldPassword, newPassword } = req.body;
     try {
-        await pool.query("INSERT INTO users (email, password) VALUES ($1, $2)", [email, password]);
-        res.json({ message: "Registered successfully. Please login." });
+        // Verify old password
+        const result = await pool.query("SELECT * FROM users WHERE email = $1 AND password = $2", [email, oldPassword]);
+        if (result.rows.length === 0) {
+            return res.status(401).json({ error: "Invalid old password" });
+        }
+        
+        // Update password
+        await pool.query("UPDATE users SET password = $1 WHERE email = $2", [newPassword, email]);
+        res.json({ message: "Password updated successfully" });
     } catch (err) {
-        return res.status(400).json({ error: "User already exists or error occurred." });
+        return res.status(500).json({ error: err.message });
     }
 });
 

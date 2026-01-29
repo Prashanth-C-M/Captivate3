@@ -24,7 +24,7 @@ function initAuth() {
         const adminActions = document.getElementById('admin-actions');
         const adminButtons = adminActions ? adminActions.querySelectorAll('button') : [];
 
-        if (currentUser.toLowerCase() === 'prashanth.c@brillio.com') {
+        if (currentUser.toLowerCase() === 'captivate_admin@brillio.com') {
             if (manageBtn) {
                 manageBtn.disabled = false;
                 manageBtn.title = "Manage Reasons";
@@ -95,91 +95,66 @@ if(formLogin) {
     });
 }
 
-// Register
-const formRegister = document.getElementById('form-register');
-if(formRegister) {
-    formRegister.addEventListener('submit', async (e) => {
+// Change Password
+const changePasswordModal = document.getElementById('change-password-modal');
+const changePasswordBtn = document.getElementById('change-password-btn');
+const closeChangePasswordBtn = document.querySelector('.close-change-password');
+const changePasswordForm = document.getElementById('change-password-form');
+
+if (changePasswordBtn) {
+    changePasswordBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        const email = document.getElementById('reg-email').value;
-        const password = document.getElementById('reg-password').value;
-        const confirm = document.getElementById('reg-confirm').value;
+        changePasswordModal.style.display = 'flex';
+    });
+}
 
-        if (!email.endsWith('@brillio.com')) {
-            alert("Only @brillio.com email addresses are allowed.");
+if (closeChangePasswordBtn) {
+    closeChangePasswordBtn.addEventListener('click', () => {
+        changePasswordModal.style.display = 'none';
+        changePasswordForm.reset();
+    });
+}
+
+if (changePasswordForm) {
+    changePasswordForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const oldPassword = document.getElementById('old-password').value;
+        const newPassword = document.getElementById('new-password').value;
+        const confirmNewPassword = document.getElementById('confirm-new-password').value;
+
+        if (newPassword !== confirmNewPassword) {
+            alert("New passwords do not match.");
             return;
         }
 
-        if (password !== confirm) {
-            alert("Passwords do not match.");
-            return;
-        }
-        
-        if (password.length < 6) {
+        if (newPassword.length < 6) {
             alert("Password must be at least 6 characters.");
             return;
         }
 
         try {
-            const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+            const res = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ 
+                    email: sessionStorage.getItem('currentUser'),
+                    oldPassword, 
+                    newPassword 
+                })
             });
             const data = await res.json();
 
             if (res.ok) {
-                alert("Registration Successful! Please login.");
-                showAuth('login');
+                alert("Password changed successfully!");
+                changePasswordModal.style.display = 'none';
+                changePasswordForm.reset();
             } else {
-                alert(data.error || "Registration failed");
+                alert(data.error || "Failed to change password");
             }
         } catch (error) {
-            console.error("Register error:", error);
+            console.error("Change password error:", error);
             alert("Server connection error.");
         }
-    });
-}
-
-// Email Validation on Blur
-const regEmailInput = document.getElementById('reg-email');
-if(regEmailInput) {
-    regEmailInput.addEventListener('blur', async function() {
-        const email = this.value;
-        const errorDiv = document.getElementById('reg-email-error');
-        
-        if (!email) {
-             errorDiv.classList.add('hidden');
-             return;
-        }
-
-        if (!email.endsWith('@brillio.com')) {
-            errorDiv.textContent = "Only @brillio.com email addresses are allowed.";
-            errorDiv.classList.remove('hidden');
-            return;
-        }
-
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/auth/check`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            });
-            const data = await res.json();
-            
-            if (data.exists) {
-                errorDiv.textContent = "This email is already registered. Please login.";
-                errorDiv.classList.remove('hidden');
-            } else {
-                errorDiv.classList.add('hidden');
-            }
-        } catch (e) {
-            console.error("Validation error", e);
-        }
-    });
-    
-    // Hide error on focus
-    regEmailInput.addEventListener('focus', function() {
-        document.getElementById('reg-email-error').classList.add('hidden');
     });
 }
 
@@ -199,7 +174,7 @@ if(formForgot) {
             const data = await res.json();
             
             if (data.exists) {
-                alert(`Contact Prashanth.c@brillio.com`);
+                alert(`Contact prashanth.c@brillio.com`);
                 showAuth('login');
             } else {
                 alert("Email not found.");
@@ -1262,7 +1237,7 @@ function renderUsersList(users) {
 
 window.togglePassword = function(index) {
     const user = window.currentUsersList[index];
-    const admin = window.currentUsersList.find(u => u.email.toLowerCase() === 'prashanth.c@brillio.com');
+    const admin = window.currentUsersList.find(u => u.email.toLowerCase() === 'captivate_admin@brillio.com');
     
     if (!admin) {
         alert("Admin user verification failed.");
@@ -1327,6 +1302,7 @@ window.addEventListener('click', (e) => {
     if (e.target === questsModal) closeQuests();
     if (e.target === claimModal) closeClaim();
     if (e.target === manageQuestsModal) closeManageQuests();
+    if (e.target === changePasswordModal) changePasswordModal.style.display = 'none';
 });
 
 // Form Submission (Add / Edit)
