@@ -245,7 +245,7 @@ app.delete('/api/quests/:id', checkAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/reasons', async (req, res) => {
+app.post('/api/reasons', checkAdmin, async (req, res) => {
     const { reason, description, points, cap_type } = req.body;
     const sql = "INSERT INTO reason_mappings (reason, description, points, cap_type) VALUES ($1, $2, $3, $4) RETURNING id";
     
@@ -257,7 +257,7 @@ app.post('/api/reasons', async (req, res) => {
     }
 });
 
-app.put('/api/reasons/:id', async (req, res) => {
+app.put('/api/reasons/:id', checkAdmin, async (req, res) => {
     const { reason, description, points, cap_type } = req.body;
     const sql = "UPDATE reason_mappings SET reason = $1, description = $2, points = $3, cap_type = $4 WHERE id = $5";
     
@@ -269,7 +269,7 @@ app.put('/api/reasons/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/reasons/:id', async (req, res) => {
+app.delete('/api/reasons/:id', checkAdmin, async (req, res) => {
     const sql = "DELETE FROM reason_mappings WHERE id = $1";
     try {
         const result = await pool.query(sql, [req.params.id]);

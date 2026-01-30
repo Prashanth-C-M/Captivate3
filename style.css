@@ -1,4 +1,5 @@
 :root {
+    .hidden { display: none !important; }
     --bg-color: #050507;
     --card-bg: rgba(20, 20, 35, 0.8);
     --text-primary: #ffffff;
@@ -700,7 +701,7 @@ h1 {
     transition: all 0.2s;
 }
 
-.close-modal, .close-rules, .close-view, .close-report, .close-reasons {
+.close-modal, .close-rules, .close-view, .close-report, .close-reasons, .close-admin-panel {
     position: absolute;
     top: 1rem;
     right: 1.5rem;
@@ -710,7 +711,7 @@ h1 {
     transition: all 0.2s;
 }
 
-.close-modal:hover, .close-rules:hover, .close-view:hover, .close-report:hover, .close-reasons:hover {
+.close-modal:hover, .close-rules:hover, .close-view:hover, .close-report:hover, .close-reasons:hover, .close-admin-panel:hover {
     color: var(--danger);
     text-shadow: 0 0 10px var(--danger);
     transform: rotate(90deg);

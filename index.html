@@ -80,9 +80,7 @@
                 <button id="view-report-btn" class="btn secondary"><i class="fa-solid fa-chart-line"></i> Insights Report</button>
                 <button id="view-quests-btn" class="btn secondary"><i class="fa-solid fa-scroll"></i> Quests</button>
                 <button id="view-rules-btn" class="btn secondary"><i class="fa-solid fa-info-circle"></i> Pointing System</button>
-                <button id="manage-reasons-btn" class="btn secondary"><i class="fa-solid fa-list-check"></i> Manage Reasons</button>
-                <button id="manage-quests-btn" class="btn secondary hidden" title="Manage Quests"><i class="fa-solid fa-dragon"></i> Manage Quests</button>
-                <button id="inbox-btn" class="btn secondary hidden" title="Inbox"><i class="fa-solid fa-inbox"></i> Inbox</button>
+                <button id="admin-panel-btn" class="btn secondary hidden"><i class="fa-solid fa-lock"></i> Admin</button>
                 
                 <div class="dropdown">
                     <button class="btn secondary"><i class="fa-solid fa-user-gear"></i> Account</button>
@@ -98,26 +96,6 @@
             <!-- Podium will be injected here -->
         </div>
 
-        <div id="admin-actions" class="admin-toolbar">
-            <div class="admin-group">
-                <span class="admin-label">Team Members:</span>
-                <button id="export-teams-btn" class="btn secondary" title="Export Members"><i class="fa-solid fa-download"></i> Export</button>
-                <input type="file" id="import-teams-file" hidden accept=".xlsx, .xls">
-                <button id="import-teams-btn" class="btn secondary" title="Import Members"><i class="fa-solid fa-upload"></i> Import</button>
-            </div>
-            
-            <div class="admin-group bordered">
-                <span class="admin-label">Reasons:</span>
-                <button id="export-reasons-btn" class="btn secondary" title="Export Reasons"><i class="fa-solid fa-download"></i> Export</button>
-                <input type="file" id="import-reasons-file" hidden accept=".xlsx, .xls">
-                <button id="import-reasons-btn" class="btn secondary" title="Import Reasons"><i class="fa-solid fa-upload"></i> Import</button>
-            </div>
-            
-            <div class="admin-group bordered">
-                <span class="admin-label">Users:</span>
-                <button id="view-users-btn" class="btn secondary" title="View Users"><i class="fa-solid fa-users"></i> View</button>
-            </div>
-        </div>
 
         <div class="leaderboard-container">
             <div class="leaderboard-header">
@@ -129,6 +107,43 @@
             </div>
             <div id="leaderboard-list">
                 <!-- List items will be injected here by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Panel Modal -->
+    <div id="admin-panel-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-admin-panel">&times;</span>
+            <h2>Admin Panel</h2>
+            
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Core Management -->
+                <button id="manage-reasons-btn" class="btn secondary full-width" style="justify-content: flex-start;"><i class="fa-solid fa-list-check" style="width:25px;"></i> Manage Reasons</button>
+                <button id="manage-quests-btn" class="btn secondary full-width" style="justify-content: flex-start;"><i class="fa-solid fa-dragon" style="width:25px;"></i> Manage Quests</button>
+                <button id="inbox-btn" class="btn secondary full-width" style="justify-content: flex-start;"><i class="fa-solid fa-inbox" style="width:25px;"></i> Inbox</button>
+                <button id="view-users-btn" class="btn secondary full-width" style="justify-content: flex-start;"><i class="fa-solid fa-users" style="width:25px;"></i> View Users</button>
+                
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.5rem 0;">
+                
+                <!-- Data Actions -->
+                <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                    <label style="margin-bottom: 0.5rem;">Team Members Data</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button id="export-teams-btn" class="btn secondary" style="flex:1;"><i class="fa-solid fa-download"></i> Export</button>
+                        <input type="file" id="import-teams-file" hidden accept=".xlsx, .xls">
+                        <button id="import-teams-btn" class="btn secondary" style="flex:1;"><i class="fa-solid fa-upload"></i> Import</button>
+                    </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                    <label style="margin-bottom: 0.5rem;">Reasons Data</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button id="export-reasons-btn" class="btn secondary" style="flex:1;"><i class="fa-solid fa-download"></i> Export</button>
+                        <input type="file" id="import-reasons-file" hidden accept=".xlsx, .xls">
+                        <button id="import-reasons-btn" class="btn secondary" style="flex:1;"><i class="fa-solid fa-upload"></i> Import</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

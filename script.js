@@ -23,53 +23,16 @@ function initAuth() {
         document.getElementById('auth-overlay').classList.add('hidden');
         document.getElementById('app-container').classList.remove('hidden');
         
-        const manageBtn = document.getElementById('manage-reasons-btn');
-        const manageQuestsBtn = document.getElementById('manage-quests-btn');
-        const inboxBtn = document.getElementById('inbox-btn');
-        const adminActions = document.getElementById('admin-actions');
-        const adminButtons = adminActions ? adminActions.querySelectorAll('button') : [];
+        const adminPanelBtn = document.getElementById('admin-panel-btn');
 
         if (isAdmin()) {
-            if (manageBtn) {
-                manageBtn.disabled = false;
-                manageBtn.title = "Manage Reasons";
-                manageBtn.classList.remove('hidden'); 
+            if (adminPanelBtn) {
+                adminPanelBtn.classList.remove('hidden');
             }
-            if (manageQuestsBtn) {
-                manageQuestsBtn.disabled = false;
-                manageQuestsBtn.title = "Manage Quests";
-                manageQuestsBtn.classList.remove('hidden');
-            }
-            if (inboxBtn) {
-                inboxBtn.disabled = false;
-                inboxBtn.classList.remove('hidden');
-            }
-            // Enable Admin Actions
-            adminButtons.forEach(btn => {
-                btn.disabled = false;
-                // Restore original title if stored (optional, but good for UX)
-                if (btn.dataset.originalTitle) btn.title = btn.dataset.originalTitle;
-            });
         } else {
-            if (manageBtn) {
-                manageBtn.disabled = true;
-                manageBtn.title = "Admin Access Only";
-                manageBtn.classList.remove('hidden');
+            if (adminPanelBtn) {
+                adminPanelBtn.classList.add('hidden');
             }
-            if (manageQuestsBtn) {
-                manageQuestsBtn.disabled = true;
-                manageQuestsBtn.classList.add('hidden');
-            }
-            if (inboxBtn) {
-                inboxBtn.disabled = true;
-                inboxBtn.classList.add('hidden');
-            }
-            // Disable Admin Actions
-            adminButtons.forEach(btn => {
-                btn.disabled = true;
-                if (!btn.dataset.originalTitle) btn.dataset.originalTitle = btn.title;
-                btn.title = "Admin Access Only";
-            });
         }
     } else {
         document.getElementById('auth-overlay').classList.remove('hidden');
@@ -187,7 +150,7 @@ if(formForgot) {
             const data = await res.json();
             
             if (data.exists) {
-                alert(`Contact prashanth.c@brillio.com`);
+                alert(`Contact captivate_admin@brillio.com`);
                 showAuth('login');
             } else {
                 alert("Email not found.");
@@ -326,6 +289,27 @@ const teamForm = document.getElementById('team-form');
 const modalTitle = document.getElementById('modal-title');
 const editIndexInput = document.getElementById('edit-index');
 const podiumDisplay = document.getElementById('podium-display');
+
+// Admin Panel Elements
+const adminPanelModal = document.getElementById('admin-panel-modal');
+const adminPanelBtn = document.getElementById('admin-panel-btn');
+const closeAdminPanelBtn = document.querySelector('.close-admin-panel');
+
+if (adminPanelBtn) {
+    adminPanelBtn.addEventListener('click', () => {
+        if(isAdmin()) {
+            adminPanelModal.style.display = 'flex';
+        } else {
+            alert("Unauthorized access.");
+        }
+    });
+}
+
+if (closeAdminPanelBtn) {
+    closeAdminPanelBtn.addEventListener('click', () => {
+        adminPanelModal.style.display = 'none';
+    });
+}
 
 // Inbox Elements
 const inboxModal = document.getElementById('inbox-modal');
@@ -655,6 +639,10 @@ if (inboxBtn) inboxBtn.addEventListener('click', openInbox);
 if (closeInboxBtn) closeInboxBtn.addEventListener('click', closeInbox);
 
 async function openInbox() {
+    if (!isAdmin()) {
+        alert("Unauthorized access.");
+        return;
+    }
     inboxModal.style.display = 'flex';
     await fetchRequests();
 }
@@ -761,6 +749,10 @@ window.rejectRequest = async function(id) {
 };
 
 function openReasonsManager() {
+    if (!isAdmin()) {
+        alert("Unauthorized access.");
+        return;
+    }
     reasonsModal.style.display = 'flex';
     renderReasonsList();
 }
@@ -1091,6 +1083,10 @@ function closeClaim() {
 }
 
 function openManageQuests() {
+    if (!isAdmin()) {
+        alert("Unauthorized access.");
+        return;
+    }
     manageQuestsModal.style.display = 'flex';
     renderManageQuestsList();
 }
@@ -1351,6 +1347,10 @@ function closeView() {
 }
 
 async function openUsersModal() {
+    if (!isAdmin()) {
+        alert("Unauthorized access.");
+        return;
+    }
     usersModal.style.display = 'flex';
     try {
         const res = await fetch(`${API_BASE_URL}/api/users`, {
@@ -1460,6 +1460,7 @@ window.addEventListener('click', (e) => {
     if (e.target === manageQuestsModal) closeManageQuests();
     if (e.target === changePasswordModal) changePasswordModal.style.display = 'none';
     if (e.target === inboxModal) closeInbox();
+    if (e.target === adminPanelModal) adminPanelModal.style.display = 'none';
 });
 
 // Form Submission (Add / Edit)
@@ -1696,6 +1697,11 @@ window.viewTeam = function(index) {
 };
 
 window.deleteTeam = async function(index) {
+    if (!isAdmin()) {
+        alert("Only Admins can delete team members. Please contact captivate_admin@brillio.com");
+        return;
+    }
+
     const team = teams[index];
     if(confirm(`Are you sure you want to delete ${team.name}?`)) {
         try {
