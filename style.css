@@ -691,7 +691,8 @@ h1 {
     to { transform: scale(1); opacity: 1; }
 }
 
-.close-modal, .close-rules, .close-view, .close-report {
+.close-modal, .close-rules, .close-view, .close-report, .close-reasons, .close-admin-panel,
+.close-quests, .close-manage-quests, .close-inbox, .close-change-password, .close-users, .close-claim {
     position: absolute;
     top: 1rem;
     right: 1.5rem;
@@ -701,17 +702,8 @@ h1 {
     transition: all 0.2s;
 }
 
-.close-modal, .close-rules, .close-view, .close-report, .close-reasons, .close-admin-panel {
-    position: absolute;
-    top: 1rem;
-    right: 1.5rem;
-    font-size: 2rem;
-    cursor: pointer;
-    color: var(--text-secondary);
-    transition: all 0.2s;
-}
-
-.close-modal:hover, .close-rules:hover, .close-view:hover, .close-report:hover, .close-reasons:hover, .close-admin-panel:hover {
+.close-modal:hover, .close-rules:hover, .close-view:hover, .close-report:hover, .close-reasons:hover, .close-admin-panel:hover,
+.close-quests:hover, .close-manage-quests:hover, .close-inbox:hover, .close-change-password:hover, .close-users:hover, .close-claim:hover {
     color: var(--danger);
     text-shadow: 0 0 10px var(--danger);
     transform: rotate(90deg);

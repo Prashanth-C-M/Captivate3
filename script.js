@@ -167,6 +167,16 @@ if(formForgot) {
 let teams = [];
 let reasonMappings = [];
 let quests = [];
+let currentArchetype = 'All';
+
+window.filterLeaderboard = function(archetype) {
+    currentArchetype = archetype;
+    document.querySelectorAll('.archetype-tab').forEach(btn => {
+        btn.classList.remove('active');
+        if(btn.textContent.trim() === archetype) btn.classList.add('active');
+    });
+    renderLeaderboard();
+};
 
 // API Interaction
 async function fetchTeams() {
@@ -441,8 +451,14 @@ function getCapSvg(color) {
 
 // Render Leaderboard
 function renderLeaderboard() {
+    let displayTeams = [...teams];
+    if (currentArchetype !== 'All') {
+        // Default to 'Delivery' if archetype is missing (backward compatibility)
+        displayTeams = displayTeams.filter(t => (t.archetype || 'Delivery') === currentArchetype);
+    }
+
     // Sort teams by Cap Level descending, then by Total Score, then by Date
-    teams.sort((a, b) => {
+    displayTeams.sort((a, b) => {
         const levelA = calculateLevel(a.history || []).level;
         const levelB = calculateLevel(b.history || []).level;
 
@@ -472,12 +488,12 @@ function renderLeaderboard() {
     podiumDisplay.innerHTML = ''; // Clear podium
 
     // Render Podium (Top 3)
-    if (teams.length > 0) {
+    if (displayTeams.length > 0) {
         const podiumOrder = [1, 0, 2]; // 2nd, 1st, 3rd position visually (indices)
         
         podiumOrder.forEach(idx => {
-            if (teams[idx]) {
-                const team = teams[idx];
+            if (displayTeams[idx]) {
+                const team = displayTeams[idx];
                 const rank = idx + 1;
                 const levelData = calculateLevel(team.history || []);
                 let capHtml = '';
@@ -504,7 +520,7 @@ function renderLeaderboard() {
         });
     }
 
-    teams.forEach((team, index) => {
+    displayTeams.forEach((team, index) => {
         const rank = index + 1;
         const row = document.createElement('div');
         row.className = `leaderboard-row rank-${rank}`;
@@ -524,20 +540,26 @@ function renderLeaderboard() {
             if (levelData.level >= 4) capsHtml += getCapSvg("#000000");
         }
 
+        // Find original index in the main teams array for actions
+        const originalIndex = teams.indexOf(team);
+
         row.innerHTML = `
             <div class="col rank">#${rank}</div>
             <div class="col team">
                 <div class="team-icon">
                     <i class="fa-solid ${team.icon}"></i>
                 </div>
-                <span>${team.name}</span>
+                <div style="display:flex; flex-direction:column; align-items:flex-start; justify-content:center;">
+                    <span>${team.name}</span>
+                    <span style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">${team.archetype || 'Delivery'}</span>
+                </div>
             </div>
             <div class="col score">${team.score.toLocaleString()}</div>
             <div class="col cap-level" title="${levelData.name}" style="gap: 5px;">${capsHtml}</div>
             <div class="col actions">
-                <button class="btn view-btn" onclick="viewTeam(${index})" title="View Dashboard"><i class="fa-solid fa-eye"></i></button>
-                <button class="btn edit" onclick="editTeam(${index})" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                <button class="btn danger" onclick="deleteTeam(${index})" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                <button class="btn view-btn" onclick="viewTeam(${originalIndex})" title="View Dashboard"><i class="fa-solid fa-eye"></i></button>
+                <button class="btn edit" onclick="editTeam(${originalIndex})" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                <button class="btn danger" onclick="deleteTeam(${originalIndex})" title="Delete"><i class="fa-solid fa-trash"></i></button>
             </div>
         `;
 
@@ -614,6 +636,26 @@ if(importReasonsBtn && importReasonsFile) {
     });
 }
 
+function toggleEditFields(show) {
+    const displayStyle = show ? 'block' : 'none';
+    const groupCurrentScore = document.getElementById('group-current-score');
+    const groupReason = document.getElementById('group-reason');
+    const groupPointsAdd = document.getElementById('group-points-add');
+    const reasonSelect = document.getElementById('points-reason');
+
+    if (groupCurrentScore) groupCurrentScore.style.display = displayStyle;
+    if (groupReason) groupReason.style.display = displayStyle;
+    if (groupPointsAdd) groupPointsAdd.style.display = displayStyle;
+
+    if (reasonSelect) {
+        if (show) {
+            reasonSelect.setAttribute('required', 'required');
+        } else {
+            reasonSelect.removeAttribute('required');
+        }
+    }
+}
+
 addTeamBtn.addEventListener('click', () => {
     // Reset Form for Add
     document.getElementById('team-form').reset();
@@ -621,6 +663,12 @@ addTeamBtn.addEventListener('click', () => {
     document.getElementById('modal-title').textContent = "Add New Member";
     document.getElementById('current-score-display').textContent = "0";
     
+    toggleEditFields(false); // Hide edit-only fields
+
+    // Enable fields for new member
+    document.getElementById('team-name').disabled = false;
+    document.getElementById('team-archetype').disabled = false;
+
     populateReasonDropdown(null); // Load initial reasons (Orange)
 
     // Default Icon
@@ -1448,28 +1496,28 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     location.reload();
 });
 
-// Close modal if clicking outside
-window.addEventListener('click', (e) => {
-    if (e.target === teamModal) closeModal();
-    if (e.target === rulesModal) closeRules();
-    if (e.target === viewModal) closeView();
-    if (e.target === reportModal) closeReport();
-    if (e.target === usersModal) closeUsersModal();
-    if (e.target === questsModal) closeQuests();
-    if (e.target === claimModal) closeClaim();
-    if (e.target === manageQuestsModal) closeManageQuests();
-    if (e.target === changePasswordModal) changePasswordModal.style.display = 'none';
-    if (e.target === inboxModal) closeInbox();
-    if (e.target === adminPanelModal) adminPanelModal.style.display = 'none';
-});
+// Close modal if clicking outside - REMOVED per requirements
+// Popups should only close via the close icon
+// window.addEventListener('click', (e) => { ... });
 
 // Form Submission (Add / Edit)
 teamForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const name = document.getElementById('team-name').value;
+    const archetype = document.getElementById('team-archetype').value;
     const icon = document.querySelector('input[name="team-icon"]:checked').value;
     const index = parseInt(editIndexInput.value);
+
+    // Duplicate Check (Case-insensitive)
+    const duplicate = teams.find((t, i) => 
+        t.name.trim().toLowerCase() === name.trim().toLowerCase() && i !== index
+    );
+
+    if (duplicate) {
+        alert("A team member with this name already exists.");
+        return;
+    }
     
     const pointsAddInput = document.getElementById('points-add');
     const reasonInput = document.getElementById('points-reason');
@@ -1518,7 +1566,7 @@ teamForm.addEventListener('submit', async (e) => {
                 newHistory.push({ points: pointsToAdd, reason: reason, date: date });
             }
 
-            const updatedTeam = { ...team, name, icon, score: newScore, history: newHistory };
+            const updatedTeam = { ...team, name, archetype, icon, score: newScore, history: newHistory };
             
             await fetch(`${API_BASE_URL}/api/team-members/${team.id}`, {
                 method: 'PUT',
@@ -1540,6 +1588,7 @@ teamForm.addEventListener('submit', async (e) => {
 
             const newTeamData = {
                 name,
+                archetype,
                 icon,
                 score: createScore,
                 history: history
@@ -1584,6 +1633,11 @@ teamForm.addEventListener('submit', async (e) => {
 window.editTeam = function(index) {
     const team = teams[index];
     document.getElementById('team-name').value = team.name;
+    document.getElementById('team-archetype').value = team.archetype || 'Delivery';
+    
+    // Disable fields for edit
+    document.getElementById('team-name').disabled = true;
+    document.getElementById('team-archetype').disabled = true;
     
     // Update Score UI
     document.getElementById('current-score-display').textContent = team.score.toLocaleString();
@@ -1593,6 +1647,8 @@ window.editTeam = function(index) {
     // Select the correct icon
     const iconRadio = document.querySelector(`input[name="team-icon"][value="${team.icon}"]`);
     if (iconRadio) iconRadio.checked = true;
+
+    toggleEditFields(true); // Show extra fields
 
     populateReasonDropdown(team); // Load relevant reasons
 
@@ -1610,6 +1666,7 @@ window.viewTeam = function(index) {
     // Populate Modal
     viewIcon.innerHTML = `<i class="fa-solid ${team.icon}"></i>`;
     viewName.textContent = team.name;
+    document.getElementById('view-archetype').textContent = team.archetype || 'Delivery';
     viewRank.textContent = rank;
     viewScore.textContent = team.score.toLocaleString();
     

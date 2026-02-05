@@ -55,8 +55,16 @@ async function initDb() {
             name TEXT,
             icon TEXT,
             score INTEGER,
-            history TEXT
+            history TEXT,
+            archetype TEXT DEFAULT 'Delivery'
         )`);
+
+        // Migration: Add archetype to team_members if missing
+        const tmCols = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='team_members' AND column_name='archetype'`);
+        if (tmCols.rows.length === 0) {
+             await pool.query("ALTER TABLE team_members ADD COLUMN archetype TEXT DEFAULT 'Delivery'");
+             console.log("Added archetype column to team_members");
+        }
 
         // Create Reasons Mapping Table
         await pool.query(`CREATE TABLE IF NOT EXISTS reason_mappings (
@@ -426,15 +434,15 @@ app.get('/api/team-members', async (req, res) => {
 });
 
 app.post('/api/team-members', async (req, res) => {
-    const { name, icon, score, history } = req.body;
-    const sql = "INSERT INTO team_members (name, icon, score, history) VALUES ($1, $2, $3, $4) RETURNING id";
-    const params = [name, icon, score, JSON.stringify(history || [])];
+    const { name, icon, score, history, archetype } = req.body;
+    const sql = "INSERT INTO team_members (name, icon, score, history, archetype) VALUES ($1, $2, $3, $4, $5) RETURNING id";
+    const params = [name, icon, score, JSON.stringify(history || []), archetype || 'Delivery'];
     
     try {
         const result = await pool.query(sql, params);
         res.json({
             id: result.rows[0].id,
-            name, icon, score, history
+            name, icon, score, history, archetype
         });
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -442,9 +450,9 @@ app.post('/api/team-members', async (req, res) => {
 });
 
 app.put('/api/team-members/:id', async (req, res) => {
-    const { name, icon, score, history } = req.body;
-    const sql = "UPDATE team_members SET name = $1, icon = $2, score = $3, history = $4 WHERE id = $5";
-    const params = [name, icon, score, JSON.stringify(history || []), req.params.id];
+    const { name, icon, score, history, archetype } = req.body;
+    const sql = "UPDATE team_members SET name = $1, icon = $2, score = $3, history = $4, archetype = $5 WHERE id = $6";
+    const params = [name, icon, score, JSON.stringify(history || []), archetype || 'Delivery', req.params.id];
     
     try {
         const result = await pool.query(sql, params);
@@ -522,6 +530,7 @@ app.post('/api/team-members/import', checkAdmin, upload.single('file'), async (r
             const name = row.name;
             const icon = row.icon || 'fa-brain';
             const score = row.score || 0;
+            const archetype = row.archetype || 'Delivery';
             let history = row.history || '[]';
             if (typeof history !== 'string') history = JSON.stringify(history);
 
@@ -530,13 +539,13 @@ app.post('/api/team-members/import', checkAdmin, upload.single('file'), async (r
             if (checkRes.rows.length > 0) {
                 const existingId = checkRes.rows[0].id;
                 await client.query(
-                    "UPDATE team_members SET icon = $1, score = $2, history = $3 WHERE id = $4",
-                    [icon, score, history, existingId]
+                    "UPDATE team_members SET icon = $1, score = $2, history = $3, archetype = $4 WHERE id = $5",
+                    [icon, score, history, archetype, existingId]
                 );
             } else {
                 await client.query(
-                    "INSERT INTO team_members (name, icon, score, history) VALUES ($1, $2, $3, $4)",
-                    [name, icon, score, history]
+                    "INSERT INTO team_members (name, icon, score, history, archetype) VALUES ($1, $2, $3, $4, $5)",
+                    [name, icon, score, history, archetype]
                 );
             }
         }
