@@ -168,12 +168,23 @@ let teams = [];
 let reasonMappings = [];
 let quests = [];
 let currentArchetype = 'All';
+let currentVertical = 'All';
 
 window.filterLeaderboard = function(archetype) {
     currentArchetype = archetype;
     document.querySelectorAll('.archetype-tab').forEach(btn => {
         btn.classList.remove('active');
         if(btn.textContent.trim() === archetype) btn.classList.add('active');
+    });
+    renderLeaderboard();
+};
+
+window.filterVertical = function(vertical) {
+    currentVertical = vertical;
+    document.querySelectorAll('.vertical-pill').forEach(btn => {
+        btn.classList.remove('active');
+        const textSpan = btn.querySelector('.text');
+        if(textSpan && textSpan.textContent.trim() === vertical) btn.classList.add('active');
     });
     renderLeaderboard();
 };
@@ -452,9 +463,17 @@ function getCapSvg(color) {
 // Render Leaderboard
 function renderLeaderboard() {
     let displayTeams = [...teams];
+    
+    // Filter by Archetype
     if (currentArchetype !== 'All') {
         // Default to 'Delivery' if archetype is missing (backward compatibility)
         displayTeams = displayTeams.filter(t => (t.archetype || 'Delivery') === currentArchetype);
+    }
+
+    // Filter by Vertical
+    if (currentVertical !== 'All') {
+        // Default to 'BFSI' if vertical is missing
+        displayTeams = displayTeams.filter(t => (t.vertical || 'BFSI') === currentVertical);
     }
 
     // Sort teams by Cap Level descending, then by Total Score, then by Date
@@ -668,6 +687,7 @@ addTeamBtn.addEventListener('click', () => {
     // Enable fields for new member
     document.getElementById('team-name').disabled = false;
     document.getElementById('team-archetype').disabled = false;
+    document.getElementById('team-vertical').disabled = false;
 
     populateReasonDropdown(null); // Load initial reasons (Orange)
 
@@ -854,7 +874,10 @@ window.editReason = function(id) {
 window.deleteReason = async function(id) {
     if(confirm('Delete this reason?')) {
         try {
-            await fetch(`${API_BASE_URL}/api/reasons/${id}`, { method: 'DELETE' });
+            await fetch(`${API_BASE_URL}/api/reasons/${id}`, { 
+                method: 'DELETE',
+                headers: { 'x-user-email': currentUser }
+            });
             await fetchReasons(); // Refresh data
             renderReasonsList();
         } catch (e) {
@@ -888,7 +911,10 @@ async function handleReasonSubmit(e) {
     try {
         const res = await fetch(url, {
             method: method,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'x-user-email': currentUser
+            },
             body: JSON.stringify({ reason, description, points, cap_type })
         });
 
@@ -1506,6 +1532,7 @@ teamForm.addEventListener('submit', async (e) => {
 
     const name = document.getElementById('team-name').value;
     const archetype = document.getElementById('team-archetype').value;
+    const vertical = document.getElementById('team-vertical').value;
     const icon = document.querySelector('input[name="team-icon"]:checked').value;
     const index = parseInt(editIndexInput.value);
 
@@ -1566,7 +1593,7 @@ teamForm.addEventListener('submit', async (e) => {
                 newHistory.push({ points: pointsToAdd, reason: reason, date: date });
             }
 
-            const updatedTeam = { ...team, name, archetype, icon, score: newScore, history: newHistory };
+            const updatedTeam = { ...team, name, archetype, vertical, icon, score: newScore, history: newHistory };
             
             await fetch(`${API_BASE_URL}/api/team-members/${team.id}`, {
                 method: 'PUT',
@@ -1589,6 +1616,7 @@ teamForm.addEventListener('submit', async (e) => {
             const newTeamData = {
                 name,
                 archetype,
+                vertical,
                 icon,
                 score: createScore,
                 history: history
@@ -1634,10 +1662,21 @@ window.editTeam = function(index) {
     const team = teams[index];
     document.getElementById('team-name').value = team.name;
     document.getElementById('team-archetype').value = team.archetype || 'Delivery';
+    document.getElementById('team-vertical').value = team.vertical || 'BFSI';
     
     // Disable fields for edit
     document.getElementById('team-name').disabled = true;
     document.getElementById('team-archetype').disabled = true;
+    // Note: User didn't explicitly ask to disable Vertical editing, but usually identity fields are locked. 
+    // Given the request "Do not allow to edit the team member name or archetype once saved", Vertical is likely similar.
+    // However, I will follow explicit instructions. Only Name and Archetype were mentioned. 
+    // But logically, moving verticals might be possible? Or not? 
+    // I'll leave Vertical ENABLED for now unless it should be disabled. 
+    // Actually, "Do not allow to edit the team member name or archetype" was specific. 
+    // I will NOT disable vertical unless asked.
+    // Wait, consistency might be better. But I'll stick to instructions.
+    // Actually, usually "Vertical" is a team assignment which might change. "Archetype" might be a role that is fixed?
+    // Let's keep it enabled for now.
     
     // Update Score UI
     document.getElementById('current-score-display').textContent = team.score.toLocaleString();

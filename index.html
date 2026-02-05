@@ -92,6 +92,23 @@
             </div>
         </header>
 
+        <!-- Modern Vertical Navigation Rail -->
+        <div class="modern-vertical-nav">
+            <div class="nav-label">Verticals</div>
+            <button class="vertical-pill active" onclick="filterVertical('All')">
+                <span class="icon"><i class="fa-solid fa-layer-group"></i></span>
+                <span class="text">All</span>
+            </button>
+            <button class="vertical-pill" onclick="filterVertical('BFSI')">
+                <span class="icon"><i class="fa-solid fa-building-columns"></i></span>
+                <span class="text">BFSI</span>
+            </button>
+            <button class="vertical-pill" onclick="filterVertical('Consumer')">
+                <span class="icon"><i class="fa-solid fa-cart-shopping"></i></span>
+                <span class="text">Consumer</span>
+            </button>
+        </div>
+
         <div id="podium-display" class="podium-display">
             <!-- Podium will be injected here -->
         </div>
@@ -226,6 +243,14 @@
                         <option value="Operations">Operations</option>
                         <option value="Presales">Presales</option>
                         <option value="CoE">CoE</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="team-vertical">Vertical</label>
+                    <select id="team-vertical" required>
+                        <option value="BFSI" selected>BFSI</option>
+                        <option value="Consumer">Consumer</option>
                     </select>
                 </div>
                 

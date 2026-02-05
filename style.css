@@ -1453,6 +1453,22 @@ input:focus, select:focus {
     
     /* Quests Grid */
     .quests-grid { grid-template-columns: 1fr; }
+    
+    /* Modern Vertical Nav Mobile Override */
+    .modern-vertical-nav {
+        position: relative;
+        left: auto;
+        top: auto;
+        transform: none;
+        flex-direction: row;
+        width: 100%;
+        padding: 1rem;
+        justify-content: center;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 1rem;
+    }
+    .vertical-pill { width: auto; flex: 1; justify-content: center; }
 }
 
 /* Quests Styles */
@@ -1562,4 +1578,88 @@ input:focus, select:focus {
     color: var(--accent); 
     border-bottom-color: var(--accent);
     text-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* Modern Vertical Navigation Rail */
+.modern-vertical-nav {
+    position: fixed;
+    left: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(10, 10, 15, 0.6);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.5rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    z-index: 50;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+    min-width: 80px;
+    align-items: center;
+}
+
+.nav-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    color: var(--text-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    margin-bottom: 1rem;
+    transform: rotate(180deg);
+}
+
+.vertical-pill {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.vertical-pill::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+    opacity: 0;
+    transition: 0.3s;
+}
+
+.vertical-pill:hover {
+    color: #fff;
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.vertical-pill:hover::before { opacity: 1; }
+
+.vertical-pill.active {
+    background: rgba(0, 243, 255, 0.1);
+    color: var(--accent);
+    box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+    border: 1px solid rgba(0, 243, 255, 0.3);
+}
+
+.vertical-pill .icon {
+    font-size: 1.2rem;
+}
+
+.vertical-pill .text {
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }

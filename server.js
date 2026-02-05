@@ -56,7 +56,8 @@ async function initDb() {
             icon TEXT,
             score INTEGER,
             history TEXT,
-            archetype TEXT DEFAULT 'Delivery'
+            archetype TEXT DEFAULT 'Delivery',
+            vertical TEXT DEFAULT 'BFSI'
         )`);
 
         // Migration: Add archetype to team_members if missing
@@ -64,6 +65,13 @@ async function initDb() {
         if (tmCols.rows.length === 0) {
              await pool.query("ALTER TABLE team_members ADD COLUMN archetype TEXT DEFAULT 'Delivery'");
              console.log("Added archetype column to team_members");
+        }
+
+        // Migration: Add vertical to team_members if missing
+        const tmColsVert = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='team_members' AND column_name='vertical'`);
+        if (tmColsVert.rows.length === 0) {
+             await pool.query("ALTER TABLE team_members ADD COLUMN vertical TEXT DEFAULT 'BFSI'");
+             console.log("Added vertical column to team_members");
         }
 
         // Create Reasons Mapping Table
@@ -434,15 +442,15 @@ app.get('/api/team-members', async (req, res) => {
 });
 
 app.post('/api/team-members', async (req, res) => {
-    const { name, icon, score, history, archetype } = req.body;
-    const sql = "INSERT INTO team_members (name, icon, score, history, archetype) VALUES ($1, $2, $3, $4, $5) RETURNING id";
-    const params = [name, icon, score, JSON.stringify(history || []), archetype || 'Delivery'];
+    const { name, icon, score, history, archetype, vertical } = req.body;
+    const sql = "INSERT INTO team_members (name, icon, score, history, archetype, vertical) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id";
+    const params = [name, icon, score, JSON.stringify(history || []), archetype || 'Delivery', vertical || 'BFSI'];
     
     try {
         const result = await pool.query(sql, params);
         res.json({
             id: result.rows[0].id,
-            name, icon, score, history, archetype
+            name, icon, score, history, archetype, vertical
         });
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -450,9 +458,9 @@ app.post('/api/team-members', async (req, res) => {
 });
 
 app.put('/api/team-members/:id', async (req, res) => {
-    const { name, icon, score, history, archetype } = req.body;
-    const sql = "UPDATE team_members SET name = $1, icon = $2, score = $3, history = $4, archetype = $5 WHERE id = $6";
-    const params = [name, icon, score, JSON.stringify(history || []), archetype || 'Delivery', req.params.id];
+    const { name, icon, score, history, archetype, vertical } = req.body;
+    const sql = "UPDATE team_members SET name = $1, icon = $2, score = $3, history = $4, archetype = $5, vertical = $6 WHERE id = $7";
+    const params = [name, icon, score, JSON.stringify(history || []), archetype || 'Delivery', vertical || 'BFSI', req.params.id];
     
     try {
         const result = await pool.query(sql, params);
@@ -531,6 +539,7 @@ app.post('/api/team-members/import', checkAdmin, upload.single('file'), async (r
             const icon = row.icon || 'fa-brain';
             const score = row.score || 0;
             const archetype = row.archetype || 'Delivery';
+            const vertical = row.vertical || 'BFSI';
             let history = row.history || '[]';
             if (typeof history !== 'string') history = JSON.stringify(history);
 
@@ -539,13 +548,13 @@ app.post('/api/team-members/import', checkAdmin, upload.single('file'), async (r
             if (checkRes.rows.length > 0) {
                 const existingId = checkRes.rows[0].id;
                 await client.query(
-                    "UPDATE team_members SET icon = $1, score = $2, history = $3, archetype = $4 WHERE id = $5",
-                    [icon, score, history, archetype, existingId]
+                    "UPDATE team_members SET icon = $1, score = $2, history = $3, archetype = $4, vertical = $5 WHERE id = $6",
+                    [icon, score, history, archetype, vertical, existingId]
                 );
             } else {
                 await client.query(
-                    "INSERT INTO team_members (name, icon, score, history, archetype) VALUES ($1, $2, $3, $4, $5)",
-                    [name, icon, score, history, archetype]
+                    "INSERT INTO team_members (name, icon, score, history, archetype, vertical) VALUES ($1, $2, $3, $4, $5, $6)",
+                    [name, icon, score, history, archetype, vertical]
                 );
             }
         }
