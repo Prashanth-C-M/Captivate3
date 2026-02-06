@@ -1667,16 +1667,7 @@ window.editTeam = function(index) {
     // Disable fields for edit
     document.getElementById('team-name').disabled = true;
     document.getElementById('team-archetype').disabled = true;
-    // Note: User didn't explicitly ask to disable Vertical editing, but usually identity fields are locked. 
-    // Given the request "Do not allow to edit the team member name or archetype once saved", Vertical is likely similar.
-    // However, I will follow explicit instructions. Only Name and Archetype were mentioned. 
-    // But logically, moving verticals might be possible? Or not? 
-    // I'll leave Vertical ENABLED for now unless it should be disabled. 
-    // Actually, "Do not allow to edit the team member name or archetype" was specific. 
-    // I will NOT disable vertical unless asked.
-    // Wait, consistency might be better. But I'll stick to instructions.
-    // Actually, usually "Vertical" is a team assignment which might change. "Archetype" might be a role that is fixed?
-    // Let's keep it enabled for now.
+    document.getElementById('team-vertical').disabled = true;
     
     // Update Score UI
     document.getElementById('current-score-display').textContent = team.score.toLocaleString();
