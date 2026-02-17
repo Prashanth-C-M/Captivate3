@@ -1,3 +1,258 @@
+// --- Tour Logic ---
+const tourSteps = [
+    {
+        element: '.captivate-logo',
+        title: 'Welcome to Cap-tivate!',
+        description: 'Your gamified hub for mastering skills and tracking performance. Let\'s explore the features!',
+        position: 'right'
+    },
+    {
+        element: '#podium-display',
+        title: 'Hall of Fame',
+        description: 'The Podium honors our top 3 leaders. Rank is determined by a combination of high Cap Levels and total scores.',
+        position: 'bottom'
+    },
+    {
+        element: '.modern-vertical-nav',
+        title: 'Vertical Segments',
+        description: 'Filter performance by business vertical (BFSI or Consumer) to see how you rank within your specific market.',
+        position: 'right'
+    },
+    {
+        element: '.leaderboard-container',
+        title: 'Main Leaderboard',
+        description: 'The heart of the app. View real-time rankings, icons, total scores, and current Cap Level badges for every member.',
+        position: 'bottom'
+    },
+    {
+        element: '#add-team-btn',
+        title: 'Add New Member',
+        description: 'Use this button strictly to register a new member into the system.',
+        position: 'bottom'
+    },
+    {
+        element: '.btn.edit',
+        title: 'Update Points',
+        description: 'Click the pencil icon on any member to update their points or request point additions for approval.',
+        position: 'left'
+    },
+    {
+        element: '#view-quests-btn',
+        title: 'Epic Quests',
+        description: 'Earn massive points by completing quests in Training, Assets, or Mentorship. Claiming a quest starts an approval workflow.',
+        position: 'bottom'
+    },
+    {
+        element: '#view-report-btn',
+        title: 'Insights Dashboard',
+        description: 'Visual analytics! Track Daily Momentum, mastery level distribution, and impact breakdown via interactive charts.',
+        position: 'bottom'
+    },
+    {
+        element: '#view-rules-btn',
+        title: 'Cap Mastery Rules',
+        description: 'View the Pointing System. Learn the specific point thresholds required to earn your Orange, Green, Purple, and Black Caps.',
+        position: 'bottom'
+    },
+    {
+        element: '.view-btn',
+        title: 'Personal Dashboards',
+        description: 'Click the eye icon on any member to view their detailed performance history, progress to next level, and approved milestones.',
+        position: 'left'
+    },
+    {
+        element: '.dropdown',
+        title: 'Profile & Preferences',
+        description: 'Secure your account by changing your password, or use this menu to restart this interactive tour at any time.',
+        position: 'bottom'
+    },
+    {
+        element: '#admin-panel-btn',
+        title: 'Administration Core',
+        description: 'Exclusive to admins: Manage reason mappings, curate quest lists, view registered users, and process the approval inbox.',
+        position: 'bottom',
+        adminOnly: true
+    },
+    {
+        element: '.captivate-logo',
+        title: 'Welcome to the Journey!',
+        description: 'You\'re all set! Start contributing, claiming quests, and climb to the top. Strive for the Black Cap!',
+        position: 'right'
+    }
+];
+
+let currentTourStep = 0;
+
+function startTour() {
+    const userEmail = sessionStorage.getItem('currentUser');
+    if (!userEmail) return;
+
+    // Track tour completion per user email
+    const storageKey = `tourCompleted_${userEmail}`;
+    if (localStorage.getItem(storageKey)) {
+        return;
+    }
+
+    currentTourStep = 0;
+    document.getElementById('tour-overlay').classList.remove('hidden');
+    showTourStep(currentTourStep);
+}
+
+function showTourStep(stepIndex) {
+    if (stepIndex >= tourSteps.length) {
+        endTour();
+        return;
+    }
+
+    const step = tourSteps[stepIndex];
+
+    // Skip admin steps for non-admins
+    if (step.adminOnly && !isAdmin()) {
+        currentTourStep++;
+        showTourStep(currentTourStep);
+        return;
+    }
+
+    const targetElement = document.querySelector(step.element);
+
+    // Check visibility
+    if (!targetElement || targetElement.classList.contains('hidden') || targetElement.offsetParent === null) {
+        console.warn(`Tour element not visible or found: ${step.element}`);
+        // If we are moving forward, skip forward, else skip backward
+        if (currentTourStep >= stepIndex) {
+            currentTourStep++;
+        } else {
+            currentTourStep--;
+        }
+        showTourStep(currentTourStep);
+        return;
+    }
+
+    const rect = targetElement.getBoundingClientRect();
+    const highlightBox = document.querySelector('.tour-highlight-box');
+    const tooltip = document.querySelector('.tour-tooltip');
+
+    // --- Position Highlight Box ---
+    // With fixed positioning, getBoundingClientRect is exactly what we need
+    highlightBox.style.width = `${rect.width + 10}px`;
+    highlightBox.style.height = `${rect.height + 10}px`;
+    highlightBox.style.top = `${rect.top - 5}px`;
+    highlightBox.style.left = `${rect.left - 5}px`;
+    highlightBox.style.display = 'block';
+
+    // --- Update Tooltip Content ---
+    document.getElementById('tour-step-title').textContent = step.title;
+    document.getElementById('tour-step-desc').textContent = step.description;
+    document.getElementById('tour-step-count').textContent = `${stepIndex + 1}/${tourSteps.length}`;
+    
+    // --- Position Tooltip ---
+    tooltip.className = 'tour-tooltip'; 
+    
+    // We need to show the tooltip briefly to get its real offsetHeight
+    tooltip.style.visibility = 'hidden';
+    tooltip.style.display = 'block';
+    
+    let top, left;
+    const padding = 20; // Viewport padding
+    const tooltipWidth = 300; // Match CSS
+    const tooltipHeight = tooltip.offsetHeight; // Get real height now it's in DOM
+
+    tooltip.style.visibility = 'visible';
+
+    switch (step.position) {
+        case 'bottom':
+            tooltip.classList.add('tour-bottom');
+            top = rect.bottom + 20; // More gap
+            left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+            break;
+        case 'top':
+            tooltip.classList.add('tour-top');
+            top = rect.top - tooltipHeight - 20;
+            left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+            break;
+        case 'right':
+            tooltip.classList.add('tour-right');
+            top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
+            left = rect.right + 20;
+            break;
+        case 'left':
+            tooltip.classList.add('tour-left');
+            top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
+            left = rect.left - tooltipWidth - 20;
+            break;
+        default:
+            top = window.innerHeight / 2 - tooltipHeight / 2;
+            left = window.innerWidth / 2 - tooltipWidth / 2;
+    }
+
+    // --- Viewport Clamping (Keep inside screen) ---
+    const maxLeft = window.innerWidth - tooltipWidth - padding;
+    const maxTop = window.innerHeight - tooltipHeight - padding;
+
+    left = Math.max(padding, Math.min(left, maxLeft));
+    top = Math.max(padding, Math.min(top, maxTop));
+
+    tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${left}px`;
+    tooltip.style.transform = 'none'; // Reset transform for manual positioning
+
+    // Update button visibility
+    document.getElementById('tour-prev-btn').style.visibility = (stepIndex === 0) ? 'hidden' : 'visible';
+
+    // Update button text for the last step
+    const nextBtn = document.getElementById('tour-next-btn');
+    if (stepIndex === tourSteps.length - 1) {
+        nextBtn.textContent = 'Finish';
+    } else {
+        nextBtn.textContent = 'Next';
+    }
+
+    // Scroll element into view if needed
+    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function endTour() {
+    const userEmail = sessionStorage.getItem('currentUser');
+    document.getElementById('tour-overlay').classList.add('hidden');
+    if (userEmail) {
+        localStorage.setItem(`tourCompleted_${userEmail}`, 'true');
+    }
+}
+
+document.getElementById('tour-next-btn').addEventListener('click', () => {
+    currentTourStep++;
+    showTourStep(currentTourStep);
+});
+
+document.getElementById('tour-prev-btn').addEventListener('click', () => {
+    if (currentTourStep > 0) {
+        currentTourStep--;
+        showTourStep(currentTourStep);
+    }
+});
+
+document.getElementById('tour-skip-btn').addEventListener('click', endTour);
+
+// Manual restart button
+const restartTourBtn = document.getElementById('restart-tour-btn');
+if (restartTourBtn) {
+    restartTourBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const userEmail = sessionStorage.getItem('currentUser');
+        if (userEmail) {
+            localStorage.removeItem(`tourCompleted_${userEmail}`);
+            startTour();
+        }
+    });
+}
+
+// Adjust tour position on window resize
+window.addEventListener('resize', () => {
+    if (!document.getElementById('tour-overlay').classList.contains('hidden')) {
+        showTourStep(currentTourStep);
+    }
+});
+
 // --- Auth System (SQLite Backend) ---
 // Leave empty string for production to use relative paths (same domain)
 // For local development with separate frontend/backend, set to 'http://localhost:3000'
@@ -34,6 +289,12 @@ function initAuth() {
                 adminPanelBtn.classList.add('hidden');
             }
         }
+        // Start the tour after user is authenticated and app is visible
+        // Wait a bit longer for data to fetch and DOM to be fully ready
+        setTimeout(() => {
+            console.log("Checking if tour should start for:", currentUser);
+            startTour();
+        }, 2000); 
     } else {
         document.getElementById('auth-overlay').classList.remove('hidden');
         document.getElementById('app-container').classList.add('hidden');

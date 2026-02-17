@@ -86,6 +86,7 @@
                     <button class="btn secondary"><i class="fa-solid fa-user-gear"></i> Account</button>
                     <div class="dropdown-content">
                         <a href="#" id="change-password-btn"><i class="fa-solid fa-key"></i> Change Password</a>
+                        <a href="#" id="restart-tour-btn"><i class="fa-solid fa-route"></i> Interactive Tour</a>
                         <a href="#" id="logout-btn" style="color: var(--danger-color);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
                     </div>
                 </div>
@@ -547,6 +548,23 @@
             <h2>Approval Inbox</h2>
             <div id="inbox-list" class="rules-list" style="max-height: 500px; overflow-y: auto;">
                 <!-- Requests injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Tour Overlay -->
+    <div id="tour-overlay" class="hidden">
+        <div class="tour-highlight-box"></div>
+        <div class="tour-tooltip">
+            <h3 id="tour-step-title">Welcome!</h3>
+            <p id="tour-step-desc">Let's take a quick tour of Cap-tivate.</p>
+            <div class="tour-actions">
+                <button id="tour-skip-btn" class="btn secondary" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">Skip</button>
+                <div class="tour-nav">
+                    <span id="tour-step-count" style="font-size: 0.8rem; color: var(--text-secondary); margin-right: 10px;">1/13</span>
+                    <button id="tour-prev-btn" class="btn secondary" style="font-size: 0.8rem; padding: 0.4rem 0.8rem; margin-right: 5px;">Back</button>
+                    <button id="tour-next-btn" class="btn primary" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">Next</button>
+                </div>
             </div>
         </div>
     </div>

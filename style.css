@@ -1663,3 +1663,96 @@ input:focus, select:focus {
     text-transform: uppercase;
     letter-spacing: 1px;
 }
+
+/* Tour Overlay */
+#tour-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10001; /* Above everything */
+    background: transparent; /* Fully transparent to see background as is */
+    pointer-events: none; /* Let clicks pass through if needed? No, keep it blocking for tour UI */
+}
+
+/* Make sure tour actions/tooltip are clickable even if overlay is transparent/pointer-none */
+.tour-tooltip {
+    pointer-events: all;
+}
+
+#tour-overlay.hidden {
+    display: none;
+}
+
+/* The "hole" or highlight effect */
+.tour-highlight-box {
+    position: fixed; /* Switch to fixed for accuracy */
+    border: 3px solid var(--accent);
+    /* Removed the 9999px dark shadow entirely */
+    box-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent-glow); 
+    border-radius: 12px;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    pointer-events: none;
+    z-index: 10002;
+    animation: tourPulse 2s infinite;
+}
+
+@keyframes tourPulse {
+    0% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.8), 0 0 20px var(--accent); }
+    50% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.8), 0 0 30px var(--accent), 0 0 10px var(--accent); }
+    100% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.8), 0 0 20px var(--accent); }
+}
+
+.tour-tooltip {
+    position: fixed; /* Switch to fixed for viewport-relative positioning */
+    width: 260px; /* Reduced width */
+    background: var(--card-bg);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 1rem; /* Reduced padding */
+    color: white;
+    z-index: 10003;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+    transition: all 0.4s ease-out;
+}
+
+.tour-tooltip h3 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+    font-family: var(--font-heading);
+    border: none;
+    padding: 0;
+}
+
+.tour-tooltip p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.tour-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tour-nav {
+    display: flex;
+    align-items: center;
+}
+
+/* Arrow for tooltip (optional, simple implementation) */
+.tour-tooltip::after {
+    content: '';
+    position: absolute;
+    /* Positioning will be dynamic based on placement, but basic styles here */
+}
+
+/* Specific tooltip positions (handled by JS, but helper classes) */
+.tour-top { bottom: 100%; margin-bottom: 15px; }
+.tour-bottom { top: 100%; margin-top: 15px; }
+.tour-left { right: 100%; margin-right: 15px; }
+.tour-right { left: 100%; margin-left: 15px; }
