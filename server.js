@@ -80,7 +80,9 @@ async function initDb() {
             reason TEXT,
             description TEXT,
             points INTEGER,
-            cap_type TEXT DEFAULT 'Orange'
+            cap_type TEXT DEFAULT 'Orange',
+            recurrence TEXT DEFAULT 'Unlimited',
+            monthly_limit INTEGER DEFAULT 0
         )`);
 
         // Create Quests Table
@@ -132,6 +134,18 @@ async function initDb() {
         if (res.rows.length === 0) {
              await pool.query("ALTER TABLE reason_mappings ADD COLUMN cap_type TEXT DEFAULT 'Orange'");
              console.log("Added cap_type column to reason_mappings");
+        }
+
+        const recurrenceCols = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='reason_mappings' AND column_name='recurrence'`);
+        if (recurrenceCols.rows.length === 0) {
+             await pool.query("ALTER TABLE reason_mappings ADD COLUMN recurrence TEXT DEFAULT 'Unlimited'");
+             console.log("Added recurrence column to reason_mappings");
+        }
+
+        const monthlyLimitCols = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='reason_mappings' AND column_name='monthly_limit'`);
+        if (monthlyLimitCols.rows.length === 0) {
+             await pool.query("ALTER TABLE reason_mappings ADD COLUMN monthly_limit INTEGER DEFAULT 0");
+             console.log("Added monthly_limit column to reason_mappings");
         }
 
         // Create Point Requests Table
@@ -262,23 +276,23 @@ app.delete('/api/quests/:id', checkAdmin, async (req, res) => {
 });
 
 app.post('/api/reasons', checkAdmin, async (req, res) => {
-    const { reason, description, points, cap_type } = req.body;
-    const sql = "INSERT INTO reason_mappings (reason, description, points, cap_type) VALUES ($1, $2, $3, $4) RETURNING id";
+    const { reason, description, points, cap_type, recurrence, monthly_limit } = req.body;
+    const sql = "INSERT INTO reason_mappings (reason, description, points, cap_type, recurrence, monthly_limit) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id";
     
     try {
-        const result = await pool.query(sql, [reason, description, points, cap_type || 'Orange']);
-        res.json({ id: result.rows[0].id, reason, description, points, cap_type: cap_type || 'Orange' });
+        const result = await pool.query(sql, [reason, description, points, cap_type || 'Orange', recurrence || 'Unlimited', monthly_limit || 0]);
+        res.json({ id: result.rows[0].id, reason, description, points, cap_type: cap_type || 'Orange', recurrence: recurrence || 'Unlimited', monthly_limit: monthly_limit || 0 });
     } catch (err) {
         res.status(400).json({ error: err.message });
     }
 });
 
 app.put('/api/reasons/:id', checkAdmin, async (req, res) => {
-    const { reason, description, points, cap_type } = req.body;
-    const sql = "UPDATE reason_mappings SET reason = $1, description = $2, points = $3, cap_type = $4 WHERE id = $5";
+    const { reason, description, points, cap_type, recurrence, monthly_limit } = req.body;
+    const sql = "UPDATE reason_mappings SET reason = $1, description = $2, points = $3, cap_type = $4, recurrence = $5, monthly_limit = $6 WHERE id = $7";
     
     try {
-        const result = await pool.query(sql, [reason, description, points, cap_type || 'Orange', req.params.id]);
+        const result = await pool.query(sql, [reason, description, points, cap_type || 'Orange', recurrence || 'Unlimited', monthly_limit || 0, req.params.id]);
         res.json({ message: "Updated", changes: result.rowCount });
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -301,7 +315,7 @@ app.get('/api/requests', checkAdmin, async (req, res) => {
         const result = await pool.query(`
             SELECT pr.*, tm.name as team_member_name 
             FROM point_requests pr
-            LEFT JOIN team_members tm ON pr.team_member_id = tm.id
+            LEFT JOIN team_members tm ON CAST(pr.team_member_id AS INTEGER) = tm.id
             WHERE pr.status = 'Pending'
             ORDER BY pr.created_at ASC
         `);
@@ -314,10 +328,24 @@ app.get('/api/requests', checkAdmin, async (req, res) => {
 app.post('/api/requests', async (req, res) => {
     const { team_member_id, points, reason, requested_by } = req.body;
     try {
+        // Check if there is already a pending request for this team member and reason
+        const existing = await pool.query(
+            "SELECT id FROM point_requests WHERE team_member_id = $1 AND reason = $2 AND status = 'Pending'",
+            [team_member_id, reason]
+        );
+
+        console.log("Request to add points received:", { team_member_id, points, reason, requested_by });
+
+        if (existing.rows.length > 0) {
+            console.log("Duplicate request blocked for member ID:", team_member_id, "reason:", reason);
+            return res.status(400).json({ error: `A pending request for '${reason}' already exists for this member.` });
+        }
+
         await pool.query(
             "INSERT INTO point_requests (team_member_id, points, reason, requested_by) VALUES ($1, $2, $3, $4)",
             [team_member_id, points, reason, requested_by]
         );
+        console.log("Point request successfully created in database");
         res.json({ message: "Request submitted for approval." });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -429,12 +457,31 @@ app.post('/api/requests/:id/reject', checkAdmin, async (req, res) => {
 // API Routes - Team Members
 app.get('/api/team-members', async (req, res) => {
     try {
+        // Fetch pending requests to include in history dynamically
+        const pendingReqs = await pool.query(`SELECT team_member_id, points, reason, created_at FROM point_requests WHERE status = 'Pending'`);
+        const pendingByTeam = {};
+        pendingReqs.rows.forEach(r => {
+            if (!pendingByTeam[r.team_member_id]) pendingByTeam[r.team_member_id] = [];
+            pendingByTeam[r.team_member_id].push({
+                points: r.points,
+                reason: r.reason,
+                date: r.created_at,
+                status: 'Pending'
+            });
+        });
+
         const result = await pool.query("SELECT * FROM team_members ORDER BY id ASC");
         // Parse history JSON
-        const members = result.rows.map(row => ({
-            ...row,
-            history: JSON.parse(row.history || "[]")
-        }));
+        const members = result.rows.map(row => {
+            let history = JSON.parse(row.history || "[]");
+            if (pendingByTeam[row.id]) {
+                history = history.concat(pendingByTeam[row.id]);
+            }
+            return {
+                ...row,
+                history: history
+            };
+        });
         res.json(members);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -608,19 +655,21 @@ app.post('/api/reasons/import', checkAdmin, upload.single('file'), async (req, r
             const description = row.description || '';
             const points = row.points || 0;
             const cap_type = row.cap_type || 'Orange';
+            const recurrence = row.recurrence || 'Unlimited';
+            const monthly_limit = row.monthly_limit || 0;
 
             const checkRes = await client.query("SELECT id FROM reason_mappings WHERE reason = $1", [reason]);
             
             if (checkRes.rows.length > 0) {
                 const existingId = checkRes.rows[0].id;
                 await client.query(
-                    "UPDATE reason_mappings SET description = $1, points = $2, cap_type = $3 WHERE id = $4",
-                    [description, points, cap_type, existingId]
+                    "UPDATE reason_mappings SET description = $1, points = $2, cap_type = $3, recurrence = $4, monthly_limit = $5 WHERE id = $6",
+                    [description, points, cap_type, recurrence, monthly_limit, existingId]
                 );
             } else {
                 await client.query(
-                    "INSERT INTO reason_mappings (reason, description, points, cap_type) VALUES ($1, $2, $3, $4)",
-                    [reason, description, points, cap_type]
+                    "INSERT INTO reason_mappings (reason, description, points, cap_type, recurrence, monthly_limit) VALUES ($1, $2, $3, $4, $5, $6)",
+                    [reason, description, points, cap_type, recurrence, monthly_limit]
                 );
             }
         }

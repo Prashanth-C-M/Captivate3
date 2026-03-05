@@ -503,13 +503,13 @@
 
     <!-- Manage Reasons Modal -->
     <div id="reasons-modal" class="modal">
-        <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-content" style="max-width: 1000px;">
             <span class="close-reasons">&times;</span>
             <h2>Manage Reasons</h2>
             
             <form id="reason-form" style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border-color);">
                 <input type="hidden" id="reason-id" value="-1">
-                <div style="display: grid; grid-template-columns: 1fr 2fr 1fr auto; gap: 1rem; align-items: end;">
+                <div style="display: grid; grid-template-columns: 1fr 2fr 0.8fr 0.8fr 1fr 0.8fr auto; gap: 1rem; align-items: end;">
                     <div class="form-group" style="margin-bottom: 0;">
                         <label>Reason</label>
                         <input type="text" id="reason-text" required placeholder="Short reason">
@@ -530,6 +530,23 @@
                             <option value="Purple">Purple</option>
                             <option value="Black">Black</option>
                         </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Recurrence</label>
+                        <select id="reason-recurrence" required onchange="toggleMonthlyLimit(this.value)">
+                            <option value="Unlimited">Unlimited</option>
+                            <option value="Once">Once</option>
+                            <option value="Twice">Twice</option>
+                            <option value="Thrice">Thrice</option>
+                            <option value="Weekly">Weekly</option>
+                            <option value="Monthly">Monthly</option>
+                            <option value="Quarterly">Quarterly</option>
+                            <option value="Yearly">Yearly</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0; display: none;" id="group-monthly-limit">
+                        <label>Limit/Month</label>
+                        <input type="number" id="reason-monthly-limit" min="1" placeholder="Max/mo" value="1">
                     </div>
                     <button type="submit" class="btn primary" style="margin-top: 0; height: 50px;">Save</button>
                 </div>
@@ -569,6 +586,17 @@
         </div>
     </div>
 
+    <script>
+        function toggleMonthlyLimit(val) {
+            const group = document.getElementById('group-monthly-limit');
+            if (val === 'Monthly' || val === 'Weekly' || val === 'Quarterly') {
+                group.style.display = 'block';
+            } else {
+                group.style.display = 'none';
+                document.getElementById('reason-monthly-limit').value = 1; // Reset to default
+            }
+        }
+    </script>
     <script src="script.js"></script>
 </body>
 </html>

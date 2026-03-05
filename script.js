@@ -494,6 +494,116 @@ function getTargetCap(score) {
     return 'Black';
 }
 
+function checkReasonEligibility(team, reasonMapping) {
+    if (!team || !team.history || team.history.length === 0) return { eligible: true };
+    
+    const recurrence = reasonMapping.recurrence || 'Unlimited';
+    const history = team.history;
+    const reasonName = reasonMapping.reason;
+
+    // Check for pending requests for this reason
+    const pendingCount = history.filter(h => h.reason === reasonName && h.status === 'Pending').length;
+    if (pendingCount > 0) {
+        return { eligible: false, message: `You already have a pending request for '${reasonName}'. Please wait for approval.` };
+    }
+
+    // Filter history for this specific reason
+    // Exclude rejected and pending requests as they don't count towards usage limit
+    const relevantHistory = history.filter(h => h.reason === reasonName && h.status !== 'Rejected' && h.status !== 'Pending');
+    
+    if (recurrence === 'Once') {
+        if (relevantHistory.length > 0) {
+            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' once.` };
+        }
+        return { eligible: true };
+    }
+
+    if (recurrence === 'Twice') {
+        if (relevantHistory.length >= 2) {
+            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' twice.` };
+        }
+        return { eligible: true };
+    }
+
+    if (recurrence === 'Thrice') {
+        if (relevantHistory.length >= 3) {
+            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' thrice.` };
+        }
+        return { eligible: true };
+    }
+
+    if (recurrence === 'Yearly') {
+        const currentYear = new Date().getFullYear();
+        const yearlyCount = relevantHistory.filter(h => {
+            if (!h.date) return false;
+            return new Date(h.date).getFullYear() === currentYear;
+        }).length;
+        if (yearlyCount > 0) {
+            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' once per year.` };
+        }
+        return { eligible: true };
+    }
+
+    if (recurrence === 'Weekly') {
+        const now = new Date();
+        // Calculate the start of the week (assuming Sunday is start of week)
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const weeklyCount = relevantHistory.filter(h => {
+            if (!h.date) return false;
+            const d = new Date(h.date);
+            return d >= startOfWeek;
+        }).length;
+
+        const limit = reasonMapping.monthly_limit || 1; // Reuse monthly_limit field for numerical limit
+        if (weeklyCount >= limit) {
+            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' ${limit} time(s) per week.` };
+        }
+        return { eligible: true };
+    }
+
+    if (recurrence === 'Monthly') {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        
+        const monthlyCount = relevantHistory.filter(h => {
+            if (!h.date) return false;
+            const d = new Date(h.date);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        }).length;
+
+        const limit = reasonMapping.monthly_limit || 1;
+        if (monthlyCount >= limit) {
+            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' ${limit} time(s) per month.` };
+        }
+        return { eligible: true };
+    }
+
+    if (recurrence === 'Quarterly') {
+        const now = new Date();
+        const currentQuarter = Math.floor(now.getMonth() / 3);
+        const currentYear = now.getFullYear();
+
+        const quarterlyCount = relevantHistory.filter(h => {
+            if (!h.date) return false;
+            const d = new Date(h.date);
+            const q = Math.floor(d.getMonth() / 3);
+            return q === currentQuarter && d.getFullYear() === currentYear;
+        }).length;
+
+        const limit = reasonMapping.monthly_limit || 1;
+        if (quarterlyCount >= limit) {
+            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' ${limit} time(s) per quarter.` };
+        }
+        return { eligible: true };
+    }
+
+    return { eligible: true };
+}
+
 function populateReasonDropdown(team = null) {
     const reasonSelect = document.getElementById('points-reason');
     if (!reasonSelect) return;
@@ -503,18 +613,10 @@ function populateReasonDropdown(team = null) {
         reasonSelect.remove(1);
     }
 
-    const currentScore = team ? team.score : 0;
+    // const currentScore = team ? team.score : 0;
     // const targetCap = getTargetCap(currentScore); // Filter removed
-    const historyReasons = team ? (team.history || []).map(h => h.reason) : [];
 
     const filteredReasons = reasonMappings.filter(r => {
-        // Cap Type Match - REMOVED
-        // const rCap = r.cap_type || 'Orange';
-        // if (rCap !== targetCap) return false;
-        
-        // Unique Check - Keep this if you want reasons to be one-time only per user
-        // if (historyReasons.includes(r.reason)) return false;
-        
         return true;
     });
 
@@ -528,17 +630,38 @@ function populateReasonDropdown(team = null) {
     filteredReasons.forEach(mapping => {
         const option = document.createElement('option');
         option.value = mapping.reason; 
+        
         // Add visual indicator for cap type
         const capIndicator = mapping.cap_type ? `[${mapping.cap_type}] ` : '';
-        option.textContent = `${capIndicator}${mapping.reason} (+${mapping.points})`;
+        
+        // Eligibility check
+        const eligibility = checkReasonEligibility(team, mapping);
+        
+        if (!eligibility.eligible) {
+            option.textContent = `❌ ${mapping.reason} (${eligibility.message})`;
+            option.disabled = true;
+            option.style.color = '#ff4d4d'; // Red text for disabled
+        } else {
+            let recText = "";
+            if (mapping.recurrence === 'Once') recText = " [1x]";
+            else if (mapping.recurrence === 'Twice') recText = " [2x]";
+            else if (mapping.recurrence === 'Thrice') recText = " [3x]";
+            else if (mapping.recurrence === 'Yearly') recText = " [1/yr]";
+            else if (mapping.recurrence === 'Weekly') recText = ` [${mapping.monthly_limit || 1}/wk]`;
+            else if (mapping.recurrence === 'Monthly') recText = ` [${mapping.monthly_limit || 1}/mo]`;
+            else if (mapping.recurrence === 'Quarterly') recText = ` [${mapping.monthly_limit || 1}/qtr]`;
+
+            option.textContent = `${capIndicator}${mapping.reason} (+${mapping.points})${recText}`;
+            
+            // Optional: Style the option if supported by browser/OS
+            if (mapping.cap_type === 'Orange') option.style.color = '#f97316';
+            if (mapping.cap_type === 'Green') option.style.color = '#39ff14';
+            if (mapping.cap_type === 'Purple') option.style.color = '#bc13fe';
+            if (mapping.cap_type === 'Black') option.style.color = '#ffffff';
+        }
+        
         option.title = mapping.description;
         option.dataset.points = mapping.points;
-        
-        // Optional: Style the option if supported by browser/OS (limited support for select options)
-        if (mapping.cap_type === 'Orange') option.style.color = '#f97316';
-        if (mapping.cap_type === 'Green') option.style.color = '#39ff14';
-        if (mapping.cap_type === 'Purple') option.style.color = '#bc13fe';
-        if (mapping.cap_type === 'Black') option.style.color = '#ffffff'; // or light grey for visibility on white bg if not dark mode specific
         
         reasonSelect.appendChild(option);
     });
@@ -737,32 +860,38 @@ function renderLeaderboard() {
         displayTeams = displayTeams.filter(t => (t.vertical || 'BFSI') === currentVertical);
     }
 
-    // Sort teams by Cap Level descending, then by Total Score, then by Date
-    displayTeams.sort((a, b) => {
-        const levelA = calculateLevel(a.history || []).level;
-        const levelB = calculateLevel(b.history || []).level;
+        // Sort teams by Cap Level descending, then by Total Score, then by Date
+        displayTeams.sort((a, b) => {
+            // Exclude pending from level calculation for sorting if you want, or include.
+            // Usually level is based on approved points.
+            const approvedHistoryA = (a.history || []).filter(h => h.status !== 'Pending');
+            const approvedHistoryB = (b.history || []).filter(h => h.status !== 'Pending');
+            
+            const levelA = calculateLevel(approvedHistoryA).level;
+            const levelB = calculateLevel(approvedHistoryB).level;
 
-        // 1. Primary: Higher Cap Level wins
-        if (levelB !== levelA) {
-            return levelB - levelA;
-        }
-
-        // 2. Secondary: Higher Total Score wins
-        if (b.score !== a.score) {
-            return b.score - a.score;
-        }
-        
-        // 3. Tie-breaker: Earlier last update wins
-        const getLastUpdate = (team) => {
-            if (team.history && team.history.length > 0) {
-                // Return timestamp of last history item
-                return new Date(team.history[team.history.length - 1].date).getTime();
+            // 1. Primary: Higher Cap Level wins
+            if (levelB !== levelA) {
+                return levelB - levelA;
             }
-            return 0; // Teams with no history (initial seed) treated as "oldest"
-        };
 
-        return getLastUpdate(a) - getLastUpdate(b);
-    });
+            // 2. Secondary: Higher Total Score wins
+            if (b.score !== a.score) {
+                return b.score - a.score;
+            }
+            
+            // 3. Tie-breaker: Earlier last update wins
+            const getLastUpdate = (team) => {
+                const approvedHistory = (team.history || []).filter(h => h.status !== 'Pending');
+                if (approvedHistory.length > 0) {
+                    // Return timestamp of last history item
+                    return new Date(approvedHistory[approvedHistory.length - 1].date).getTime();
+                }
+                return 0; // Teams with no history (initial seed) treated as "oldest"
+            };
+
+            return getLastUpdate(a) - getLastUpdate(b);
+        });
 
     leaderboardList.innerHTML = ''; // Clear existing content
     podiumDisplay.innerHTML = ''; // Clear podium
@@ -1101,12 +1230,18 @@ function renderReasonsList() {
         const color = capColors[r.cap_type || 'Orange'];
         const badgeStyle = `background:${color}; color:${r.cap_type==='Black'?'white':'black'}; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-right:5px; vertical-align: middle;`;
 
+        let recText = r.recurrence || 'Unlimited';
+        if (recText === 'Monthly' && r.monthly_limit > 0) {
+            recText += ` (${r.monthly_limit}/mo)`;
+        }
+
         div.innerHTML = `
             <div style="display:flex; align-items:center; gap:1.5rem; flex:1;">
                 <div class="rule-points">+${r.points} pts</div>
                 <div style="flex:1;">
                     <div style="color:var(--text-primary); font-weight:bold; margin-bottom:0.2rem;">
                         <span style="${badgeStyle}">${r.cap_type || 'Orange'}</span> ${r.reason}
+                        <span style="font-size:0.75rem; color:var(--text-secondary); margin-left: 10px;"><i class="fa-solid fa-rotate"></i> ${recText}</span>
                     </div>
                     <div class="rule-desc" style="font-size:0.9rem;">${r.description}</div>
                 </div>
@@ -1129,6 +1264,15 @@ window.editReason = function(id) {
         document.getElementById('reason-points').value = reason.points;
         const capSelect = document.getElementById('reason-cap');
         if(capSelect) capSelect.value = reason.cap_type || 'Orange';
+        
+        const recSelect = document.getElementById('reason-recurrence');
+        if (recSelect) {
+            recSelect.value = reason.recurrence || 'Unlimited';
+            toggleMonthlyLimit(recSelect.value);
+        }
+        
+        const limitInput = document.getElementById('reason-monthly-limit');
+        if (limitInput) limitInput.value = reason.monthly_limit || 1;
     }
 };
 
@@ -1163,11 +1307,13 @@ async function handleReasonSubmit(e) {
     const description = document.getElementById('reason-desc').value;
     const points = parseInt(document.getElementById('reason-points').value);
     const cap_type = document.getElementById('reason-cap').value;
+    const recurrence = document.getElementById('reason-recurrence').value;
+    const monthly_limit = parseInt(document.getElementById('reason-monthly-limit').value) || 0;
 
     const method = id > -1 ? 'PUT' : 'POST';
     const url = id > -1 ? `${API_BASE_URL}/api/reasons/${id}` : `${API_BASE_URL}/api/reasons`;
 
-    console.log(`Method: ${method}, URL: ${url}, Data:`, { reason, description, points, cap_type });
+    console.log(`Method: ${method}, URL: ${url}, Data:`, { reason, description, points, cap_type, recurrence, monthly_limit });
 
     try {
         const res = await fetch(url, {
@@ -1176,7 +1322,7 @@ async function handleReasonSubmit(e) {
                 'Content-Type': 'application/json', 
                 'x-user-email': currentUser
             },
-            body: JSON.stringify({ reason, description, points, cap_type })
+            body: JSON.stringify({ reason, description, points, cap_type, recurrence, monthly_limit })
         });
 
         if (!res.ok) {
@@ -1621,10 +1767,12 @@ async function handleClaimSubmit(e) {
 
             if (res.ok) {
                 alert("Quest claim submitted for approval.");
+                await fetchTeams(); // Refresh data to update eligibility
                 closeClaim();
                 closeQuests();
             } else {
-                alert("Failed to submit claim request.");
+                const data = await res.json();
+                alert(data.error || "Failed to submit claim request.");
             }
         } catch (err) {
             console.error(err);
@@ -1825,7 +1973,7 @@ teamForm.addEventListener('submit', async (e) => {
                     return;
                 }
                 
-                await fetch(`${API_BASE_URL}/api/requests`, {
+                const res = await fetch(`${API_BASE_URL}/api/requests`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -1835,8 +1983,14 @@ teamForm.addEventListener('submit', async (e) => {
                         requested_by: currentUser
                     })
                 });
-                alert("Point request submitted for approval.");
-                closeModal();
+                if (res.ok) {
+                    alert("Point request submitted for approval.");
+                    await fetchTeams(); // Refresh data to update eligibility
+                    closeModal();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || "Failed to submit point request.");
+                }
                 return;
             }
 
