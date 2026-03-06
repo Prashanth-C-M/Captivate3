@@ -110,8 +110,19 @@
             </button>
         </div>
 
-        <div id="podium-display" class="podium-display">
-            <!-- Podium will be injected here -->
+        <div class="podium-carousel">
+            <div id="podium-slider" class="podium-slider">
+                <div id="podium-display" class="podium-slide podium-display active">
+                    <!-- Podium will be injected here -->
+                </div>
+                <div id="mastery-display" class="podium-slide mastery-view">
+                    <!-- Mastery lists will be injected here -->
+                </div>
+            </div>
+            <div class="carousel-dots">
+                <span class="dot active" onclick="showSlide(0)"></span>
+                <span class="dot" onclick="showSlide(1)"></span>
+            </div>
         </div>
 
         <!-- Archetype Filters -->

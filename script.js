@@ -844,10 +844,99 @@ function getCapSvg(color) {
     </svg>`;
 }
 
+// --- Carousel Logic ---
+let currentSlide = 0;
+let slideInterval;
+
+window.showSlide = function(index) {
+    const slides = document.querySelectorAll('.podium-slide');
+    const dots = document.querySelectorAll('.dot');
+    if (slides.length === 0) return;
+
+    slides.forEach(s => s.classList.remove('active'));
+    dots.forEach(d => d.classList.remove('active'));
+
+    currentSlide = index;
+    slides[currentSlide].classList.add('active');
+    dots[currentSlide].classList.add('active');
+
+    // Trigger Mastery View render if switching to it
+    if (currentSlide === 1) {
+        renderMasteryView();
+    }
+};
+
+function startSlideTimer() {
+    if (slideInterval) clearInterval(slideInterval);
+    slideInterval = setInterval(() => {
+        let next = (currentSlide + 1) % 2;
+        showSlide(next);
+    }, 2000); // Switch every 2 seconds
+}
+
+function stopSlideTimer() {
+    if (slideInterval) clearInterval(slideInterval);
+}
+
+function renderMasteryView() {
+    const masteryDisplay = document.getElementById('mastery-display');
+    if (!masteryDisplay) return;
+
+    // Group teams by cap
+    const caps = {
+        'Black': [],
+        'Purple': [],
+        'Green': [],
+        'Orange': []
+    };
+
+    teams.forEach(t => {
+        const levelData = calculateLevel(t.history || []);
+        if (levelData.level >= 4) caps['Black'].push(t);
+        else if (levelData.level >= 3) caps['Purple'].push(t);
+        else if (levelData.level >= 2) caps['Green'].push(t);
+        else if (levelData.level >= 1) caps['Orange'].push(t);
+    });
+
+    masteryDisplay.innerHTML = '';
+
+    Object.entries(caps).forEach(([color, members]) => {
+        const column = document.createElement('div');
+        column.className = `mastery-column column-${color.toLowerCase()}`;
+        
+        // Sort members by score desc within cap
+        members.sort((a, b) => b.score - a.score);
+
+        const listHtml = members.length > 0 
+            ? members.map(m => `
+                <div class="mastery-person">
+                    <div class="mastery-avatar"><i class="fa-solid ${m.icon}"></i></div>
+                    <div class="mastery-name">${m.name}</div>
+                    <div class="mastery-pts">${m.score.toLocaleString()}</div>
+                </div>
+            `).join('')
+            : `<div style="text-align:center; padding: 1rem; color: var(--text-secondary); font-size: 0.8rem;">No masters yet</div>`;
+
+        column.innerHTML = `
+            <div class="mastery-header">
+                <span class="mastery-title">${color} Caps</span>
+                <span style="background:rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 10px; font-size: 0.7rem;">${members.length}</span>
+            </div>
+            <div class="mastery-list">
+                ${listHtml}
+            </div>
+        `;
+        masteryDisplay.appendChild(column);
+    });
+}
+
 // Render Leaderboard
 function renderLeaderboard() {
     let displayTeams = [...teams];
     
+    // Refresh Mastery View if it's currently active
+    if (currentSlide === 1) renderMasteryView();
+
     // Filter by Archetype
     if (currentArchetype !== 'All') {
         // Default to 'Delivery' if archetype is missing (backward compatibility)
@@ -1132,26 +1221,29 @@ function renderInbox(requests) {
 
     requests.forEach(req => {
         const div = document.createElement('div');
-        div.className = 'rule-item'; // Reuse existing style class
-        div.style.flexDirection = 'column';
-        div.style.alignItems = 'flex-start';
+        div.className = 'rule-item'; 
+        div.style.flexDirection = 'row';
+        div.style.alignItems = 'center';
+        div.style.gap = '1.5rem';
+        div.style.padding = '1rem 1.5rem';
         
+        const dateStr = new Date(req.created_at).toLocaleDateString();
+
         div.innerHTML = `
-            <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:0.5rem;">
+            <div style="flex: 1.5; display: flex; flex-direction: column;">
                 <div style="font-weight:bold; color:var(--accent);">${req.team_member_name}</div>
-                <div style="color:var(--text-secondary); font-size:0.8rem;">${new Date(req.created_at).toLocaleDateString()}</div>
+                <div style="color:var(--text-secondary); font-size:0.75rem;">${dateStr}</div>
             </div>
-            <div style="margin-bottom:0.5rem;">
-                <span style="font-weight:bold; color:#39ff14;">+${req.points} pts</span> 
-                <span style="color:var(--text-secondary);"> for </span>
-                <span>${req.reason}</span>
+            <div style="flex: 2;">
+                <span style="font-weight:bold; color:#39ff14; margin-right: 5px;">+${req.points} pts</span> 
+                <span style="font-size:0.9rem;">${req.reason}</span>
             </div>
-            <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.8rem;">
-                Requested by: ${req.requested_by}
+            <div style="flex: 1.5; font-size:0.85rem; color:var(--text-secondary); border-left: 1px solid var(--border-color); padding-left: 1rem;">
+                By: ${req.requested_by.split('@')[0]}
             </div>
-            <div style="display:flex; gap:1rem; width:100%;">
-                <button class="btn primary" style="flex:1;" onclick="approveRequest(${req.id})">Approve</button>
-                <button class="btn danger" style="flex:1;" onclick="rejectRequest(${req.id})">Reject</button>
+            <div style="flex: 1.5; display:flex; gap:0.5rem; justify-content: flex-end;">
+                <button class="btn primary" style="padding: 0.5rem 1rem; min-height: 40px; font-size: 0.8rem; flex: 1;" onclick="approveRequest(${req.id})">Approve</button>
+                <button class="btn danger" style="padding: 0.5rem; min-height: 40px; width: 40px; clip-path: none; border: 1px solid rgba(255,0,60,0.3);" onclick="rejectRequest(${req.id})"><i class="fa-solid fa-xmark"></i></button>
             </div>
         `;
         inboxList.appendChild(div);
@@ -2405,6 +2497,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Then fetch teams to ensure level calculation has data
         fetchTeams();
         
+        // Start carousel
+        startSlideTimer();
+
+        // Hover pause logic
+        const carousel = document.querySelector('.podium-carousel');
+        if (carousel) {
+            carousel.addEventListener('mouseenter', stopSlideTimer);
+            carousel.addEventListener('mouseleave', startSlideTimer);
+        }
+
         // Celebration
         launchFireworks();
         launchComets();
