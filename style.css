@@ -1287,6 +1287,18 @@ input:focus, select:focus {
 }
 
 @media (max-width: 768px) {
+    #inbox-modal .rule-item > div:first-child {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 1rem;
+    }
+
+    #inbox-modal .rule-item > div:first-child > div {
+        border-left: none !important;
+        padding-left: 0 !important;
+        width: 100%;
+    }
+
     .charts-grid { grid-template-columns: 1fr; }
     .podium-display { gap: 0.5rem; }
     .podium-item { width: 100px; }

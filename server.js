@@ -167,6 +167,19 @@ async function initDb() {
              console.log("Added rejection_reason column to point_requests");
         }
 
+        // Migration: Add justification and month to point_requests if missing
+        const prColsJust = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='point_requests' AND column_name='justification'`);
+        if (prColsJust.rows.length === 0) {
+             await pool.query("ALTER TABLE point_requests ADD COLUMN justification TEXT");
+             console.log("Added justification column to point_requests");
+        }
+
+        const prColsMonth = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='point_requests' AND column_name='month'`);
+        if (prColsMonth.rows.length === 0) {
+             await pool.query("ALTER TABLE point_requests ADD COLUMN month TEXT");
+             console.log("Added month column to point_requests");
+        }
+
     } catch (err) {
         console.error("Error initializing database:", err);
     }
@@ -313,7 +326,7 @@ app.delete('/api/reasons/:id', checkAdmin, async (req, res) => {
 app.get('/api/requests', checkAdmin, async (req, res) => {
     try {
         const result = await pool.query(`
-            SELECT pr.*, tm.name as team_member_name 
+            SELECT pr.id, pr.team_member_id, pr.points, pr.reason, pr.requested_by, pr.status, pr.created_at, pr.rejection_reason, pr.justification, pr.month, tm.name as team_member_name 
             FROM point_requests pr
             LEFT JOIN team_members tm ON CAST(pr.team_member_id AS INTEGER) = tm.id
             WHERE pr.status = 'Pending'
@@ -326,7 +339,7 @@ app.get('/api/requests', checkAdmin, async (req, res) => {
 });
 
 app.post('/api/requests', async (req, res) => {
-    const { team_member_id, points, reason, requested_by } = req.body;
+    const { team_member_id, points, reason, requested_by, justification, month } = req.body;
     try {
         // Check if there is already a pending request for this team member and reason
         const existing = await pool.query(
@@ -334,7 +347,7 @@ app.post('/api/requests', async (req, res) => {
             [team_member_id, reason]
         );
 
-        console.log("Request to add points received:", { team_member_id, points, reason, requested_by });
+        console.log("Request to add points received:", { team_member_id, points, reason, requested_by, justification, month });
 
         if (existing.rows.length > 0) {
             console.log("Duplicate request blocked for member ID:", team_member_id, "reason:", reason);
@@ -342,8 +355,8 @@ app.post('/api/requests', async (req, res) => {
         }
 
         await pool.query(
-            "INSERT INTO point_requests (team_member_id, points, reason, requested_by) VALUES ($1, $2, $3, $4)",
-            [team_member_id, points, reason, requested_by]
+            "INSERT INTO point_requests (team_member_id, points, reason, requested_by, justification, month) VALUES ($1, $2, $3, $4, $5, $6)",
+            [team_member_id, points, reason, requested_by, justification, month]
         );
         console.log("Point request successfully created in database");
         res.json({ message: "Request submitted for approval." });

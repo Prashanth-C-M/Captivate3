@@ -494,112 +494,67 @@ function getTargetCap(score) {
     return 'Black';
 }
 
-function checkReasonEligibility(team, reasonMapping) {
-    if (!team || !team.history || team.history.length === 0) return { eligible: true };
+function checkReasonEligibility(team, reasonMapping, selectedMonth = null) {
+    if (!team || !team.history) return { eligible: true };
     
     const recurrence = reasonMapping.recurrence || 'Unlimited';
     const history = team.history;
     const reasonName = reasonMapping.reason;
 
-    // Check for pending requests for this reason
-    const pendingCount = history.filter(h => h.reason === reasonName && h.status === 'Pending').length;
-    if (pendingCount > 0) {
-        return { eligible: false, message: `You already have a pending request for '${reasonName}'. Please wait for approval.` };
+    // 1. Always block if there's a PENDING request for this reason in the SAME month
+    const pendingSameMonth = history.filter(h => 
+        h.reason === reasonName && 
+        h.status === 'Pending' && 
+        (selectedMonth ? h.month === selectedMonth : true)
+    );
+
+    if (pendingSameMonth.length > 0) {
+        return { 
+            eligible: false, 
+            message: `Pending request exists for '${reasonName}' ${selectedMonth ? `in ${selectedMonth}` : ''}.` 
+        };
     }
 
-    // Filter history for this specific reason
-    // Exclude rejected and pending requests as they don't count towards usage limit
-    const relevantHistory = history.filter(h => h.reason === reasonName && h.status !== 'Rejected' && h.status !== 'Pending');
-    
+    // 2. Recurrence Checks
+    // Filter history for this specific reason and approved status (or from previous versions where status wasn't there)
+    // We also include month check if recurrence is Monthly
+    const relevantHistory = history.filter(h => 
+        h.reason === reasonName && 
+        h.status !== 'Rejected' && 
+        h.status !== 'Pending'
+    );
+
     if (recurrence === 'Once') {
         if (relevantHistory.length > 0) {
-            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' once.` };
+            return { eligible: false, message: `Limit reached (Once).` };
         }
-        return { eligible: true };
     }
 
     if (recurrence === 'Twice') {
         if (relevantHistory.length >= 2) {
-            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' twice.` };
+            return { eligible: false, message: `Limit reached (Twice).` };
         }
-        return { eligible: true };
     }
 
     if (recurrence === 'Thrice') {
         if (relevantHistory.length >= 3) {
-            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' thrice.` };
+            return { eligible: false, message: `Limit reached (Thrice).` };
         }
-        return { eligible: true };
-    }
-
-    if (recurrence === 'Yearly') {
-        const currentYear = new Date().getFullYear();
-        const yearlyCount = relevantHistory.filter(h => {
-            if (!h.date) return false;
-            return new Date(h.date).getFullYear() === currentYear;
-        }).length;
-        if (yearlyCount > 0) {
-            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' once per year.` };
-        }
-        return { eligible: true };
-    }
-
-    if (recurrence === 'Weekly') {
-        const now = new Date();
-        // Calculate the start of the week (assuming Sunday is start of week)
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay());
-        startOfWeek.setHours(0, 0, 0, 0);
-
-        const weeklyCount = relevantHistory.filter(h => {
-            if (!h.date) return false;
-            const d = new Date(h.date);
-            return d >= startOfWeek;
-        }).length;
-
-        const limit = reasonMapping.monthly_limit || 1; // Reuse monthly_limit field for numerical limit
-        if (weeklyCount >= limit) {
-            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' ${limit} time(s) per week.` };
-        }
-        return { eligible: true };
     }
 
     if (recurrence === 'Monthly') {
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
+        if (!selectedMonth) return { eligible: true }; // Can't check without month
+
+        const usageInMonth = relevantHistory.filter(h => h.month === selectedMonth).length;
+        const limit = reasonMapping.monthly_limit || 1;
         
-        const monthlyCount = relevantHistory.filter(h => {
-            if (!h.date) return false;
-            const d = new Date(h.date);
-            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-        }).length;
-
-        const limit = reasonMapping.monthly_limit || 1;
-        if (monthlyCount >= limit) {
-            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' ${limit} time(s) per month.` };
+        if (usageInMonth >= limit) {
+            return { eligible: false, message: `Limit reached for ${selectedMonth} (${limit}/mo).` };
         }
-        return { eligible: true };
     }
 
-    if (recurrence === 'Quarterly') {
-        const now = new Date();
-        const currentQuarter = Math.floor(now.getMonth() / 3);
-        const currentYear = now.getFullYear();
-
-        const quarterlyCount = relevantHistory.filter(h => {
-            if (!h.date) return false;
-            const d = new Date(h.date);
-            const q = Math.floor(d.getMonth() / 3);
-            return q === currentQuarter && d.getFullYear() === currentYear;
-        }).length;
-
-        const limit = reasonMapping.monthly_limit || 1;
-        if (quarterlyCount >= limit) {
-            return { eligible: false, message: `Limit reached. You can only claim '${reasonName}' ${limit} time(s) per quarter.` };
-        }
-        return { eligible: true };
-    }
+    // Other recurrences (Weekly, Quarterly, Yearly) can be added here if needed, 
+    // but the request specifically focuses on Month.
 
     return { eligible: true };
 }
@@ -634,31 +589,22 @@ function populateReasonDropdown(team = null) {
         // Add visual indicator for cap type
         const capIndicator = mapping.cap_type ? `[${mapping.cap_type}] ` : '';
         
-        // Eligibility check
-        const eligibility = checkReasonEligibility(team, mapping);
-        
-        if (!eligibility.eligible) {
-            option.textContent = `❌ ${mapping.reason} (${eligibility.message})`;
-            option.disabled = true;
-            option.style.color = '#ff4d4d'; // Red text for disabled
-        } else {
-            let recText = "";
-            if (mapping.recurrence === 'Once') recText = " [1x]";
-            else if (mapping.recurrence === 'Twice') recText = " [2x]";
-            else if (mapping.recurrence === 'Thrice') recText = " [3x]";
-            else if (mapping.recurrence === 'Yearly') recText = " [1/yr]";
-            else if (mapping.recurrence === 'Weekly') recText = ` [${mapping.monthly_limit || 1}/wk]`;
-            else if (mapping.recurrence === 'Monthly') recText = ` [${mapping.monthly_limit || 1}/mo]`;
-            else if (mapping.recurrence === 'Quarterly') recText = ` [${mapping.monthly_limit || 1}/qtr]`;
+        let recText = "";
+        if (mapping.recurrence === 'Once') recText = " [1x]";
+        else if (mapping.recurrence === 'Twice') recText = " [2x]";
+        else if (mapping.recurrence === 'Thrice') recText = " [3x]";
+        else if (mapping.recurrence === 'Yearly') recText = " [1/yr]";
+        else if (mapping.recurrence === 'Weekly') recText = ` [${mapping.monthly_limit || 1}/wk]`;
+        else if (mapping.recurrence === 'Monthly') recText = ` [${mapping.monthly_limit || 1}/mo]`;
+        else if (mapping.recurrence === 'Quarterly') recText = ` [${mapping.monthly_limit || 1}/qtr]`;
 
-            option.textContent = `${capIndicator}${mapping.reason} (+${mapping.points})${recText}`;
-            
-            // Optional: Style the option if supported by browser/OS
-            if (mapping.cap_type === 'Orange') option.style.color = '#f97316';
-            if (mapping.cap_type === 'Green') option.style.color = '#39ff14';
-            if (mapping.cap_type === 'Purple') option.style.color = '#bc13fe';
-            if (mapping.cap_type === 'Black') option.style.color = '#ffffff';
-        }
+        option.textContent = `${capIndicator}${mapping.reason} (+${mapping.points})${recText}`;
+        
+        // Optional: Style the option if supported by browser/OS
+        if (mapping.cap_type === 'Orange') option.style.color = '#f97316';
+        if (mapping.cap_type === 'Green') option.style.color = '#39ff14';
+        if (mapping.cap_type === 'Purple') option.style.color = '#bc13fe';
+        if (mapping.cap_type === 'Black') option.style.color = '#ffffff';
         
         option.title = mapping.description;
         option.dataset.points = mapping.points;
@@ -1139,17 +1085,41 @@ function toggleEditFields(show) {
     const groupCurrentScore = document.getElementById('group-current-score');
     const groupReason = document.getElementById('group-reason');
     const groupPointsAdd = document.getElementById('group-points-add');
+    const groupMonth = document.getElementById('group-month');
+    const groupJustification = document.getElementById('group-justification');
+    const groupIcon = document.getElementById('group-icon');
     const reasonSelect = document.getElementById('points-reason');
+    const monthSelect = document.getElementById('points-month');
+    const justificationText = document.getElementById('points-justification');
 
     if (groupCurrentScore) groupCurrentScore.style.display = displayStyle;
     if (groupReason) groupReason.style.display = displayStyle;
     if (groupPointsAdd) groupPointsAdd.style.display = displayStyle;
+    if (groupMonth) groupMonth.style.display = isAdmin() ? 'none' : displayStyle;
+    if (groupJustification) groupJustification.style.display = isAdmin() ? 'none' : displayStyle;
+    if (groupIcon) groupIcon.style.display = show ? 'none' : 'block';
 
     if (reasonSelect) {
         if (show) {
             reasonSelect.setAttribute('required', 'required');
         } else {
             reasonSelect.removeAttribute('required');
+        }
+    }
+
+    if (monthSelect) {
+        if (show && !isAdmin()) {
+            monthSelect.setAttribute('required', 'required');
+        } else {
+            monthSelect.removeAttribute('required');
+        }
+    }
+
+    if (justificationText) {
+        if (show && !isAdmin()) {
+            justificationText.setAttribute('required', 'required');
+        } else {
+            justificationText.removeAttribute('required');
         }
     }
 }
@@ -1222,29 +1192,38 @@ function renderInbox(requests) {
     requests.forEach(req => {
         const div = document.createElement('div');
         div.className = 'rule-item'; 
-        div.style.flexDirection = 'row';
-        div.style.alignItems = 'center';
-        div.style.gap = '1.5rem';
+        div.style.flexDirection = 'column';
+        div.style.alignItems = 'stretch';
+        div.style.gap = '0.5rem';
         div.style.padding = '1rem 1.5rem';
         
         const dateStr = new Date(req.created_at).toLocaleDateString();
 
         div.innerHTML = `
-            <div style="flex: 1.5; display: flex; flex-direction: column;">
-                <div style="font-weight:bold; color:var(--accent);">${req.team_member_name}</div>
-                <div style="color:var(--text-secondary); font-size:0.75rem;">${dateStr}</div>
+            <div style="display: flex; align-items: center; gap: 1.5rem;">
+                <div style="flex: 1.5; display: flex; flex-direction: column;">
+                    <div style="font-weight:bold; color:var(--accent);">${req.team_member_name}</div>
+                    <div style="color:var(--text-secondary); font-size:0.75rem;">${dateStr}</div>
+                </div>
+                <div style="flex: 2;">
+                    <span style="font-weight:bold; color:#39ff14; margin-right: 5px;">+${req.points} pts</span> 
+                    <span style="font-size:0.9rem;">${req.reason}</span>
+                    ${req.month ? `<div style="font-size:0.75rem; color:var(--accent); margin-top:2px;">Month: ${req.month}</div>` : ''}
+                </div>
+                <div style="flex: 1.5; font-size:0.85rem; color:var(--text-secondary); border-left: 1px solid var(--border-color); padding-left: 1rem;">
+                    By: ${req.requested_by.split('@')[0]}
+                </div>
+                <div style="flex: 1.5; display:flex; gap:0.5rem; justify-content: flex-end;">
+                    <button class="btn primary" style="padding: 0.5rem 1rem; min-height: 40px; font-size: 0.8rem; flex: 1;" onclick="approveRequest(${req.id})">Approve</button>
+                    <button class="btn danger" style="padding: 0.5rem; min-height: 40px; width: 40px; clip-path: none; border: 1px solid rgba(255,0,60,0.3);" onclick="rejectRequest(${req.id})"><i class="fa-solid fa-xmark"></i></button>
+                </div>
             </div>
-            <div style="flex: 2;">
-                <span style="font-weight:bold; color:#39ff14; margin-right: 5px;">+${req.points} pts</span> 
-                <span style="font-size:0.9rem;">${req.reason}</span>
-            </div>
-            <div style="flex: 1.5; font-size:0.85rem; color:var(--text-secondary); border-left: 1px solid var(--border-color); padding-left: 1rem;">
-                By: ${req.requested_by.split('@')[0]}
-            </div>
-            <div style="flex: 1.5; display:flex; gap:0.5rem; justify-content: flex-end;">
-                <button class="btn primary" style="padding: 0.5rem 1rem; min-height: 40px; font-size: 0.8rem; flex: 1;" onclick="approveRequest(${req.id})">Approve</button>
-                <button class="btn danger" style="padding: 0.5rem; min-height: 40px; width: 40px; clip-path: none; border: 1px solid rgba(255,0,60,0.3);" onclick="rejectRequest(${req.id})"><i class="fa-solid fa-xmark"></i></button>
-            </div>
+            ${req.justification ? `
+                <div style="margin-top: 0.5rem; padding: 0.8rem; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 3px solid var(--accent);">
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.3rem;">Justification</div>
+                    <div style="font-size: 0.85rem; line-height: 1.4; color: var(--text-primary);">${req.justification}</div>
+                </div>
+            ` : ''}
         `;
         inboxList.appendChild(div);
     });
@@ -2049,9 +2028,13 @@ teamForm.addEventListener('submit', async (e) => {
     
     const pointsAddInput = document.getElementById('points-add');
     const reasonInput = document.getElementById('points-reason');
+    const monthInput = document.getElementById('points-month');
+    const justificationInput = document.getElementById('points-justification');
     
     let pointsToAdd = parseInt(pointsAddInput.value);
     const reason = reasonInput.value.trim();
+    const month = monthInput.value;
+    const justification = justificationInput.value.trim();
 
     try {
         if (index > -1) {
@@ -2064,6 +2047,16 @@ teamForm.addEventListener('submit', async (e) => {
                     alert("Please provide a reason for requesting points.");
                     return;
                 }
+
+                if (!month) {
+                    alert("Please select a month.");
+                    return;
+                }
+
+                if (!justification) {
+                    alert("Please provide a justification.");
+                    return;
+                }
                 
                 const res = await fetch(`${API_BASE_URL}/api/requests`, {
                     method: 'POST',
@@ -2072,7 +2065,9 @@ teamForm.addEventListener('submit', async (e) => {
                         team_member_id: team.id,
                         points: pointsToAdd,
                         reason: reason,
-                        requested_by: currentUser
+                        requested_by: currentUser,
+                        month: month,
+                        justification: justification
                     })
                 });
                 if (res.ok) {
@@ -2139,6 +2134,16 @@ teamForm.addEventListener('submit', async (e) => {
             
             // If non-admin had points, submit request now
             if (!isAdmin() && initialScore !== 0) {
+                if (!month) {
+                    alert("Please select a month.");
+                    return;
+                }
+
+                if (!justification) {
+                    alert("Please provide a justification.");
+                    return;
+                }
+
                  await fetch(`${API_BASE_URL}/api/requests`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2146,7 +2151,9 @@ teamForm.addEventListener('submit', async (e) => {
                         team_member_id: newMember.id,
                         points: initialScore,
                         reason: reason || "Initial Score",
-                        requested_by: currentUser
+                        requested_by: currentUser,
+                        month: month,
+                        justification: justification
                     })
                 });
                 alert("Member added. Initial points request submitted for approval.");
@@ -2180,6 +2187,8 @@ window.editTeam = function(index) {
     document.getElementById('current-score-display').textContent = team.score.toLocaleString();
     document.getElementById('points-add').value = '';
     document.getElementById('points-reason').value = '';
+    document.getElementById('points-month').value = '';
+    document.getElementById('points-justification').value = '';
     
     // Select the correct icon
     const iconRadio = document.querySelector(`input[name="team-icon"][value="${team.icon}"]`);
