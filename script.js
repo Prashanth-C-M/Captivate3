@@ -257,7 +257,7 @@ window.addEventListener('resize', () => {
 // Leave empty string for production to use relative paths (same domain)
 // For local development with separate frontend/backend, set to 'http://localhost:3000'
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-    ? 'http://localhost:3000' 
+    ? 'http://localhost:5001' 
     : ''; 
 let currentUser = sessionStorage.getItem('currentUser');
 
@@ -501,27 +501,12 @@ function checkReasonEligibility(team, reasonMapping, selectedMonth = null) {
     const history = team.history;
     const reasonName = reasonMapping.reason;
 
-    // 1. Always block if there's a PENDING request for this reason in the SAME month
-    const pendingSameMonth = history.filter(h => 
-        h.reason === reasonName && 
-        h.status === 'Pending' && 
-        (selectedMonth ? h.month === selectedMonth : true)
-    );
-
-    if (pendingSameMonth.length > 0) {
-        return { 
-            eligible: false, 
-            message: `Pending request exists for '${reasonName}' ${selectedMonth ? `in ${selectedMonth}` : ''}.` 
-        };
-    }
-
-    // 2. Recurrence Checks
-    // Filter history for this specific reason and approved status (or from previous versions where status wasn't there)
-    // We also include month check if recurrence is Monthly
+    // 1. Recurrence Checks
+    // Filter history for this specific reason, excluding Rejected ones.
+    // IRRESPECTIVE of whether the request has been approved or pending.
     const relevantHistory = history.filter(h => 
         h.reason === reasonName && 
-        h.status !== 'Rejected' && 
-        h.status !== 'Pending'
+        h.status !== 'Rejected'
     );
 
     if (recurrence === 'Once') {
@@ -552,9 +537,6 @@ function checkReasonEligibility(team, reasonMapping, selectedMonth = null) {
             return { eligible: false, message: `Limit reached for ${selectedMonth} (${limit}/mo).` };
         }
     }
-
-    // Other recurrences (Weekly, Quarterly, Yearly) can be added here if needed, 
-    // but the request specifically focuses on Month.
 
     return { eligible: true };
 }
@@ -616,15 +598,40 @@ function populateReasonDropdown(team = null) {
 // Initialize change listener once
 document.addEventListener('DOMContentLoaded', () => {
     const reasonSelect = document.getElementById('points-reason');
-    if (reasonSelect) {
-        reasonSelect.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const points = selectedOption.dataset.points;
-            const pointsInput = document.getElementById('points-add');
-            if (pointsInput && points) {
-                pointsInput.value = points;
+    const monthSelect = document.getElementById('points-month');
+
+    function validateSelection() {
+        const selectedReason = reasonSelect.value;
+        const selectedMonth = monthSelect.value;
+        const editIndex = parseInt(document.getElementById('edit-index').value);
+
+        if (selectedReason && teams[editIndex]) {
+            const mapping = reasonMappings.find(r => r.reason === selectedReason);
+            if (mapping) {
+                const eligibility = checkReasonEligibility(teams[editIndex], mapping, selectedMonth);
+                if (!eligibility.eligible) {
+                    alert(eligibility.message);
+                    reasonSelect.value = '';
+                    const pointsInput = document.getElementById('points-add');
+                    if (pointsInput) pointsInput.value = '';
+                    return;
+                }
+
+                const selectedOption = reasonSelect.options[reasonSelect.selectedIndex];
+                const points = selectedOption.dataset.points;
+                const pointsInput = document.getElementById('points-add');
+                if (pointsInput && points) {
+                    pointsInput.value = points;
+                }
             }
-        });
+        }
+    }
+
+    if (reasonSelect) {
+        reasonSelect.addEventListener('change', validateSelection);
+    }
+    if (monthSelect) {
+        monthSelect.addEventListener('change', validateSelection);
     }
 });
 
@@ -1832,7 +1839,8 @@ async function handleClaimSubmit(e) {
                     team_member_id: team.id,
                     points: points,
                     reason: `Quest Completed: ${questTitle}`,
-                    requested_by: currentUser
+                    requested_by: currentUser,
+                    month: new Date().toLocaleString('en-US', { month: 'long' })
                 })
             });
 
@@ -1858,7 +1866,8 @@ async function handleClaimSubmit(e) {
     newHistory.push({ 
         points: points, 
         reason: `Quest Completed: ${questTitle}`, 
-        date: new Date().toISOString() 
+        date: new Date().toISOString(),
+        month: new Date().toLocaleString('en-US', { month: 'long' }) // Add current month
     });
 
     try {
@@ -2057,6 +2066,26 @@ teamForm.addEventListener('submit', async (e) => {
                     alert("Please provide a justification.");
                     return;
                 }
+
+                // Temporarily add to history for immediate validation feedback
+                const tempTeam = { ...team };
+                tempTeam.history = [...(tempTeam.history || [])];
+                tempTeam.history.push({
+                    points: pointsToAdd,
+                    reason: reason,
+                    date: new Date().toISOString(),
+                    status: 'Pending',
+                    month: month
+                });
+
+                const mapping = reasonMappings.find(r => r.reason === reason);
+                if (mapping) {
+                    const eligibility = checkReasonEligibility(tempTeam, mapping, month);
+                    if (!eligibility.eligible) {
+                        alert(eligibility.message);
+                        return; // Prevent submission if ineligible
+                    }
+                }
                 
                 const res = await fetch(`${API_BASE_URL}/api/requests`, {
                     method: 'POST',
@@ -2092,7 +2121,7 @@ teamForm.addEventListener('submit', async (e) => {
                 }
                 newScore += pointsToAdd;
                 const date = new Date().toISOString(); // Use full timestamp
-                newHistory.push({ points: pointsToAdd, reason: reason, date: date });
+                newHistory.push({ points: pointsToAdd, reason: reason, date: date, month: month || new Date().toLocaleString('en-US', { month: 'long' }) });
             }
 
             const updatedTeam = { ...team, name, archetype, vertical, icon, score: newScore, history: newHistory };

@@ -341,18 +341,7 @@ app.get('/api/requests', checkAdmin, async (req, res) => {
 app.post('/api/requests', async (req, res) => {
     const { team_member_id, points, reason, requested_by, justification, month } = req.body;
     try {
-        // Check if there is already a pending request for this team member and reason
-        const existing = await pool.query(
-            "SELECT id FROM point_requests WHERE team_member_id = $1 AND reason = $2 AND status = 'Pending'",
-            [team_member_id, reason]
-        );
-
         console.log("Request to add points received:", { team_member_id, points, reason, requested_by, justification, month });
-
-        if (existing.rows.length > 0) {
-            console.log("Duplicate request blocked for member ID:", team_member_id, "reason:", reason);
-            return res.status(400).json({ error: `A pending request for '${reason}' already exists for this member.` });
-        }
 
         await pool.query(
             "INSERT INTO point_requests (team_member_id, points, reason, requested_by, justification, month) VALUES ($1, $2, $3, $4, $5, $6)",
