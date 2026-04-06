@@ -495,49 +495,7 @@ function getTargetCap(score) {
 }
 
 function checkReasonEligibility(team, reasonMapping, selectedMonth = null) {
-    if (!team || !team.history) return { eligible: true };
-    
-    const recurrence = reasonMapping.recurrence || 'Unlimited';
-    const history = team.history;
-    const reasonName = reasonMapping.reason;
-
-    // 1. Recurrence Checks
-    // Filter history for this specific reason, excluding Rejected ones.
-    // IRRESPECTIVE of whether the request has been approved or pending.
-    const relevantHistory = history.filter(h => 
-        h.reason === reasonName && 
-        h.status !== 'Rejected'
-    );
-
-    if (recurrence === 'Once') {
-        if (relevantHistory.length > 0) {
-            return { eligible: false, message: `Limit reached (Once).` };
-        }
-    }
-
-    if (recurrence === 'Twice') {
-        if (relevantHistory.length >= 2) {
-            return { eligible: false, message: `Limit reached (Twice).` };
-        }
-    }
-
-    if (recurrence === 'Thrice') {
-        if (relevantHistory.length >= 3) {
-            return { eligible: false, message: `Limit reached (Thrice).` };
-        }
-    }
-
-    if (recurrence === 'Monthly') {
-        if (!selectedMonth) return { eligible: true }; // Can't check without month
-
-        const usageInMonth = relevantHistory.filter(h => h.month === selectedMonth).length;
-        const limit = reasonMapping.monthly_limit || 1;
-        
-        if (usageInMonth >= limit) {
-            return { eligible: false, message: `Limit reached for ${selectedMonth} (${limit}/mo).` };
-        }
-    }
-
+    // Always eligible, no restrictions
     return { eligible: true };
 }
 
@@ -609,13 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const mapping = reasonMappings.find(r => r.reason === selectedReason);
             if (mapping) {
                 const eligibility = checkReasonEligibility(teams[editIndex], mapping, selectedMonth);
-                if (!eligibility.eligible) {
-                    alert(eligibility.message);
-                    reasonSelect.value = '';
-                    const pointsInput = document.getElementById('points-add');
-                    if (pointsInput) pointsInput.value = '';
-                    return;
-                }
+
 
                 const selectedOption = reasonSelect.options[reasonSelect.selectedIndex];
                 const points = selectedOption.dataset.points;
@@ -1115,19 +1067,11 @@ function toggleEditFields(show) {
     }
 
     if (monthSelect) {
-        if (show && !isAdmin()) {
-            monthSelect.setAttribute('required', 'required');
-        } else {
-            monthSelect.removeAttribute('required');
-        }
+        monthSelect.removeAttribute('required');
     }
 
     if (justificationText) {
-        if (show && !isAdmin()) {
-            justificationText.setAttribute('required', 'required');
-        } else {
-            justificationText.removeAttribute('required');
-        }
+        justificationText.removeAttribute('required');
     }
 }
 
@@ -2052,40 +1996,7 @@ teamForm.addEventListener('submit', async (e) => {
             
             if (!isAdmin() && pointsToAdd !== 0) {
                 // Request Workflow for Non-Admins
-                if (!reason) {
-                    alert("Please provide a reason for requesting points.");
-                    return;
-                }
 
-                if (!month) {
-                    alert("Please select a month.");
-                    return;
-                }
-
-                if (!justification) {
-                    alert("Please provide a justification.");
-                    return;
-                }
-
-                // Temporarily add to history for immediate validation feedback
-                const tempTeam = { ...team };
-                tempTeam.history = [...(tempTeam.history || [])];
-                tempTeam.history.push({
-                    points: pointsToAdd,
-                    reason: reason,
-                    date: new Date().toISOString(),
-                    status: 'Pending',
-                    month: month
-                });
-
-                const mapping = reasonMappings.find(r => r.reason === reason);
-                if (mapping) {
-                    const eligibility = checkReasonEligibility(tempTeam, mapping, month);
-                    if (!eligibility.eligible) {
-                        alert(eligibility.message);
-                        return; // Prevent submission if ineligible
-                    }
-                }
                 
                 const res = await fetch(`${API_BASE_URL}/api/requests`, {
                     method: 'POST',
@@ -2163,16 +2074,6 @@ teamForm.addEventListener('submit', async (e) => {
             
             // If non-admin had points, submit request now
             if (!isAdmin() && initialScore !== 0) {
-                if (!month) {
-                    alert("Please select a month.");
-                    return;
-                }
-
-                if (!justification) {
-                    alert("Please provide a justification.");
-                    return;
-                }
-
                  await fetch(`${API_BASE_URL}/api/requests`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
