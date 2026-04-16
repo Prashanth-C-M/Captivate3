@@ -428,6 +428,7 @@ if(formForgot) {
 let teams = [];
 let reasonMappings = [];
 let quests = [];
+let pendingRequests = []; // Global variable to store requests
 let currentArchetype = 'All';
 let currentVertical = 'All';
 
@@ -626,6 +627,9 @@ const inboxModal = document.getElementById('inbox-modal');
 const inboxBtn = document.getElementById('inbox-btn');
 const closeInboxBtn = document.querySelector('.close-inbox');
 const inboxList = document.getElementById('inbox-list');
+const inboxSearchInput = document.getElementById('inbox-search');
+const bulkApproveBtn = document.getElementById('bulk-approve-btn');
+const selectAllCheckbox = document.getElementById('inbox-select-all');
 
 // Reasons Modal Elements
 const reasonsModal = document.getElementById('reasons-modal');
@@ -1106,12 +1110,36 @@ if(reasonForm) reasonForm.addEventListener('submit', handleReasonSubmit);
 if (inboxBtn) inboxBtn.addEventListener('click', openInbox);
 if (closeInboxBtn) closeInboxBtn.addEventListener('click', closeInbox);
 
+if (inboxSearchInput) {
+    inboxSearchInput.addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        const filtered = pendingRequests.filter(req => 
+            req.requested_by.toLowerCase().includes(term) || 
+            req.requested_by.split('@')[0].toLowerCase().includes(term)
+        );
+        renderInbox(filtered, true);
+    });
+}
+
+if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener('change', (e) => {
+        const checkboxes = document.querySelectorAll('.inbox-item-checkbox');
+        checkboxes.forEach(cb => cb.checked = e.target.checked);
+    });
+}
+
+if (bulkApproveBtn) {
+    bulkApproveBtn.addEventListener('click', handleBulkApprove);
+}
+
 async function openInbox() {
     if (!isAdmin()) {
         alert("Unauthorized access.");
         return;
     }
     inboxModal.style.display = 'flex';
+    if (inboxSearchInput) inboxSearchInput.value = '';
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
     await fetchRequests();
 }
 
@@ -1125,18 +1153,19 @@ async function fetchRequests() {
              headers: { 'x-user-email': currentUser }
         });
         if (!res.ok) throw new Error("Failed to fetch requests");
-        const requests = await res.json();
-        renderInbox(requests);
+        pendingRequests = await res.json();
+        renderInbox(pendingRequests);
     } catch (e) {
         console.error(e);
         inboxList.innerHTML = '<p style="text-align:center; padding:1rem;">Error loading requests.</p>';
     }
 }
 
-function renderInbox(requests) {
+function renderInbox(requests, updateSelectAll = true) {
     inboxList.innerHTML = '';
     if (requests.length === 0) {
         inboxList.innerHTML = '<p style="text-align:center; padding:1rem; color: var(--text-secondary);">No pending requests.</p>';
+        if (updateSelectAll && selectAllCheckbox) selectAllCheckbox.checked = false;
         return;
     }
 
@@ -1152,6 +1181,7 @@ function renderInbox(requests) {
 
         div.innerHTML = `
             <div style="display: flex; align-items: center; gap: 1.5rem;">
+                <input type="checkbox" class="inbox-item-checkbox" data-id="${req.id}" style="width: 18px; height: 18px; cursor: pointer;">
                 <div style="flex: 1.5; display: flex; flex-direction: column;">
                     <div style="font-weight:bold; color:var(--accent);">${req.team_member_name}</div>
                     <div style="color:var(--text-secondary); font-size:0.75rem;">${dateStr}</div>
@@ -1170,7 +1200,7 @@ function renderInbox(requests) {
                 </div>
             </div>
             ${req.justification ? `
-                <div style="margin-top: 0.5rem; padding: 0.8rem; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 3px solid var(--accent);">
+                <div style="margin-top: 0.5rem; padding: 0.8rem; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 3px solid var(--accent); margin-left: 33px;">
                     <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.3rem;">Justification</div>
                     <div style="font-size: 0.85rem; line-height: 1.4; color: var(--text-primary);">${req.justification}</div>
                 </div>
@@ -1178,6 +1208,53 @@ function renderInbox(requests) {
         `;
         inboxList.appendChild(div);
     });
+
+    if (updateSelectAll && selectAllCheckbox) selectAllCheckbox.checked = false;
+}
+
+async function handleBulkApprove() {
+    const checkboxes = document.querySelectorAll('.inbox-item-checkbox:checked');
+    const ids = Array.from(checkboxes).map(cb => parseInt(cb.dataset.id));
+
+    if (ids.length === 0) {
+        alert("Please select at least one request to approve.");
+        return;
+    }
+
+    if (!confirm(`Approve ${ids.length} selected requests?`)) return;
+
+    bulkApproveBtn.disabled = true;
+    bulkApproveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Approving...`;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const id of ids) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/requests/${id}/approve`, {
+                method: 'POST',
+                headers: { 'x-user-email': currentUser }
+            });
+            if (res.ok) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        } catch (e) {
+            console.error(e);
+            failCount++;
+        }
+    }
+
+    alert(`Bulk approval completed.\nSuccess: ${successCount}\nFailed: ${failCount}`);
+    
+    bulkApproveBtn.disabled = false;
+    bulkApproveBtn.innerHTML = `<i class="fa-solid fa-check-double"></i> Bulk Approve`;
+    
+    if (successCount > 0) {
+        await fetchRequests();
+        await fetchTeams();
+    }
 }
 
 window.approveRequest = async function(id) {

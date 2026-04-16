@@ -598,7 +598,24 @@
         <div class="modal-content" style="max-width: 900px;">
             <span class="close-inbox">&times;</span>
             <h2>Approval Inbox</h2>
-            <div id="inbox-list" class="rules-list" style="max-height: 500px; overflow-y: auto;">
+            
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
+                <div style="position: relative; flex: 1;">
+                    <i class="fa-solid fa-search" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="text" id="inbox-search" placeholder="Search by submitter (e.g. name)..." style="width: 100%; padding: 0.8rem 0.8rem 0.8rem 2.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                </div>
+                <button id="bulk-approve-btn" class="btn primary" style="white-space: nowrap;"><i class="fa-solid fa-check-double"></i> Bulk Approve</button>
+            </div>
+
+            <div style="display: flex; align-items: center; padding: 0.5rem 1.5rem; border-bottom: 1px solid var(--border-color); margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+                <input type="checkbox" id="inbox-select-all" style="margin-right: 1.5rem; cursor: pointer; width: 18px; height: 18px;">
+                <div style="flex: 1.5;">Team Member / Date</div>
+                <div style="flex: 2;">Points / Reason</div>
+                <div style="flex: 1.5;">Submitted By</div>
+                <div style="flex: 1.5; text-align: right;">Actions</div>
+            </div>
+
+            <div id="inbox-list" class="rules-list" style="max-height: 400px; overflow-y: auto;">
                 <!-- Requests injected here -->
             </div>
         </div>
