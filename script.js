@@ -500,35 +500,86 @@ function checkReasonEligibility(team, reasonMapping, selectedMonth = null) {
     return { eligible: true };
 }
 
-function populateReasonDropdown(team = null) {
-    const reasonSelect = document.getElementById('points-reason');
-    if (!reasonSelect) return;
+function initReasonSearch() {
+    const dropdown = document.getElementById('reason-dropdown');
+    const searchInput = document.getElementById('points-reason-search');
+    const optionsContainer = document.getElementById('reason-options');
 
-    // Clear existing options except the placeholder
-    while (reasonSelect.options.length > 1) {
-        reasonSelect.remove(1);
+    if (!dropdown || !searchInput) return;
+
+    // Toggle dropdown on input focus or click
+    searchInput.addEventListener('focus', () => {
+        dropdown.classList.add('open');
+        populateReasonDropdown(null, searchInput.value);
+    });
+
+    searchInput.addEventListener('input', (e) => {
+        const val = e.target.value.toLowerCase();
+        populateReasonDropdown(null, val);
+        dropdown.classList.add('open');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target)) {
+            dropdown.classList.remove('open');
+        }
+    });
+
+    // Handle selection via delegation
+    optionsContainer.addEventListener('click', (e) => {
+        const option = e.target.closest('.dropdown-option');
+        if (option) {
+            const reason = option.dataset.reason;
+            const points = option.dataset.points;
+            
+            searchInput.value = reason;
+            document.getElementById('points-reason').value = reason;
+            
+            const pointsInput = document.getElementById('points-add');
+            if (pointsInput) pointsInput.value = points;
+            
+            dropdown.classList.remove('open');
+        }
+    });
+}
+
+function populateReasonDropdown(team = null, filterText = '') {
+    const optionsContainer = document.getElementById('reason-options');
+    const searchInput = document.getElementById('points-reason-search');
+    const hiddenInput = document.getElementById('points-reason');
+    const pointsInput = document.getElementById('points-add');
+    
+    if (!optionsContainer) return;
+
+    // Reset hidden input if search box is cleared manually
+    if (filterText === '' && searchInput) {
+        // searchInput.value = ''; // Don't reset search input if we are filtering by empty string
+        hiddenInput.value = '';
     }
 
-    // const currentScore = team ? team.score : 0;
-    // const targetCap = getTargetCap(currentScore); // Filter removed
+    // Clear existing options
+    optionsContainer.innerHTML = '';
 
-    const filteredReasons = reasonMappings.filter(r => {
-        return true;
+    const filteredReasons = reasonMappings.filter(mapping => {
+        if (!filterText) return true;
+        const searchStr = `${mapping.reason} ${mapping.description || ''} ${mapping.cap_type || ''}`.toLowerCase();
+        return searchStr.includes(filterText.toLowerCase());
     });
 
     if (filteredReasons.length === 0) {
-        const option = document.createElement('option');
-        option.textContent = `No available reasons`;
-        option.disabled = true;
-        reasonSelect.appendChild(option);
+        optionsContainer.innerHTML = '<div class="dropdown-option" style="cursor: default; color: var(--text-secondary);">No matches found</div>';
+        return;
     }
 
     filteredReasons.forEach(mapping => {
-        const option = document.createElement('option');
-        option.value = mapping.reason; 
+        const div = document.createElement('div');
+        div.className = 'dropdown-option';
+        div.dataset.reason = mapping.reason;
+        div.dataset.points = mapping.points;
         
-        // Add visual indicator for cap type
-        const capIndicator = mapping.cap_type ? `[${mapping.cap_type}] ` : '';
+        const capColors = { 'Orange': '#f97316', 'Green': '#39ff14', 'Purple': '#bc13fe', 'Black': '#ffffff' };
+        const color = capColors[mapping.cap_type] || '#fff';
         
         let recText = "";
         if (mapping.recurrence === 'Once') recText = " [1x]";
@@ -539,52 +590,27 @@ function populateReasonDropdown(team = null) {
         else if (mapping.recurrence === 'Monthly') recText = ` [${mapping.monthly_limit || 1}/mo]`;
         else if (mapping.recurrence === 'Quarterly') recText = ` [${mapping.monthly_limit || 1}/qtr]`;
 
-        option.textContent = `${capIndicator}${mapping.reason} (+${mapping.points})${recText}`;
+        div.innerHTML = `
+            <div class="option-text">
+                <span class="cap-tag" style="background: ${color};">${mapping.cap_type || 'N/A'}</span>
+                <span>${mapping.reason}${recText}</span>
+            </div>
+            <span class="option-points">+${mapping.points}</span>
+        `;
         
-        // Optional: Style the option if supported by browser/OS
-        if (mapping.cap_type === 'Orange') option.style.color = '#f97316';
-        if (mapping.cap_type === 'Green') option.style.color = '#39ff14';
-        if (mapping.cap_type === 'Purple') option.style.color = '#bc13fe';
-        if (mapping.cap_type === 'Black') option.style.color = '#ffffff';
-        
-        option.title = mapping.description;
-        option.dataset.points = mapping.points;
-        
-        reasonSelect.appendChild(option);
+        optionsContainer.appendChild(div);
     });
 }
 
-// Initialize change listener once
+// Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
-    const reasonSelect = document.getElementById('points-reason');
+    initReasonSearch();
+    
     const monthSelect = document.getElementById('points-month');
-
-    function validateSelection() {
-        const selectedReason = reasonSelect.value;
-        const selectedMonth = monthSelect.value;
-        const editIndex = parseInt(document.getElementById('edit-index').value);
-
-        if (selectedReason && teams[editIndex]) {
-            const mapping = reasonMappings.find(r => r.reason === selectedReason);
-            if (mapping) {
-                const eligibility = checkReasonEligibility(teams[editIndex], mapping, selectedMonth);
-
-
-                const selectedOption = reasonSelect.options[reasonSelect.selectedIndex];
-                const points = selectedOption.dataset.points;
-                const pointsInput = document.getElementById('points-add');
-                if (pointsInput && points) {
-                    pointsInput.value = points;
-                }
-            }
-        }
-    }
-
-    if (reasonSelect) {
-        reasonSelect.addEventListener('change', validateSelection);
-    }
     if (monthSelect) {
-        monthSelect.addEventListener('change', validateSelection);
+        monthSelect.addEventListener('change', () => {
+            // Month change logic if needed
+        });
     }
 });
 

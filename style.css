@@ -893,6 +893,111 @@ h2 {
 /* Forms */
 .form-group {
     margin-bottom: 1.5rem;
+    position: relative;
+}
+
+/* Integrated Searchable Dropdown */
+.searchable-dropdown {
+    position: relative;
+    width: 100%;
+}
+
+.dropdown-trigger {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.dropdown-trigger .search-icon {
+    position: absolute;
+    left: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    pointer-events: none;
+}
+
+.dropdown-trigger .chevron-icon {
+    position: absolute;
+    right: 1rem;
+    color: var(--accent);
+    font-size: 0.8rem;
+    pointer-events: none;
+    transition: transform 0.3s;
+}
+
+.searchable-dropdown.open .chevron-icon {
+    transform: rotate(180deg);
+}
+
+.dropdown-trigger input {
+    padding-left: 2.8rem !important;
+    padding-right: 2.5rem !important;
+}
+
+.dropdown-options {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    right: 0;
+    background: #1a1a2e;
+    border: 1px solid var(--accent);
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.searchable-dropdown.open .dropdown-options {
+    display: block;
+}
+
+.dropdown-option {
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: all 0.2s;
+    font-family: var(--font-ui);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dropdown-option:hover, .dropdown-option.selected {
+    background: rgba(0, 243, 255, 0.1);
+    color: var(--accent);
+}
+
+.dropdown-option:last-child {
+    border-bottom: none;
+}
+
+.dropdown-option .option-text {
+    flex: 1;
+}
+
+.dropdown-option .option-points {
+    color: var(--success);
+    font-weight: bold;
+    margin-left: 10px;
+    font-size: 0.9rem;
+}
+
+.dropdown-option .cap-tag {
+    font-size: 0.6rem;
+    padding: 2px 5px;
+    border-radius: 3px;
+    margin-right: 8px;
+    text-transform: uppercase;
+    font-weight: bold;
+    color: #000;
+}
+
+
+.btn.small {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    min-height: 32px;
 }
 
 label {

@@ -272,11 +272,18 @@
                 </div>
 
                 <div class="form-group" id="group-reason">
-                    <label for="points-reason">Reason</label>
-                    <select id="points-reason" required>
-                        <option value="" disabled selected>Select a reason...</option>
-                        <!-- Options populated via JS -->
-                    </select>
+                    <label for="points-reason-search">Reason</label>
+                    <div class="searchable-dropdown" id="reason-dropdown">
+                        <div class="dropdown-trigger">
+                            <i class="fa-solid fa-search search-icon"></i>
+                            <input type="text" id="points-reason-search" placeholder="Select or search a reason..." autocomplete="off" required>
+                            <i class="fa-solid fa-chevron-down chevron-icon"></i>
+                        </div>
+                        <div class="dropdown-options" id="reason-options">
+                            <!-- Options populated via JS -->
+                        </div>
+                        <input type="hidden" id="points-reason" name="points-reason" required>
+                    </div>
                 </div>
 
                 <div class="form-group" id="group-points-add">
